@@ -64,9 +64,12 @@ invested): feed `μ_BL`, `Σ_BL` to the mean-variance optimiser.
     of the view portfolio. With this choice `τ` cancels out of `μ_BL`.
   - Idzorek: the user gives a **confidence 0–100%** per view. Idzorek's original
     procedure solves for each `Ω_k` so that the tilt away from market weights equals
-    that percentage of the full-confidence tilt. A widely used closed-form shortcut
-    (as in PyPortfolioOpt) is `Ω_k = τ·((1 − c_k)/c_k)·p_k Σ p_k'` **[verify]** that
-    this reproduces Idzorek's worked example before relying on it.
+    that percentage of the full-confidence tilt. The closed-form shortcut
+    `Ω_k = τ·((1 − c_k)/c_k)·p_k Σ p_k'` is what PyPortfolioOpt's `idzorek_method`
+    implements (confirmed in its source; it cites Walters 2014; confidence 0 is mapped
+    to a very large `Ω_k`, confidence 1 gives `Ω_k = 0`). It is an approximation of
+    Idzorek's procedure, not the procedure itself. Note that at 50% confidence it equals
+    the He-Litterman value.
 - Whether to use `Σ_BL = Σ + M` or just `Σ` when optimising: with **no views**,
   `μ_BL = Π`, and using `Σ` returns exactly `w_mkt`, while using `Σ + M = (1 + τ)Σ`
   returns `w_mkt/(1 + τ)` (He & Litterman's result; identical after normalising to
@@ -111,9 +114,16 @@ invested): feed `μ_BL`, `Σ_BL` to the mean-variance optimiser.
   Confidence → 0 (Ω → ∞): posterior → prior.
 - The two algebraic forms of `μ_BL` agree to 1e-10.
 - He-Litterman `Ω`: `μ_BL` unchanged when `τ` changes.
-- Reproduce a published worked example (He & Litterman 1999 seven-country example,
-  or Idzorek 2005 eight-asset example) from the paper's own input tables **[verify —
-  inputs to be taken from the paper's full text]**.
+- **Idzorek (2005) worked example, reproduced numerically on 2026-11-14** from the
+  paper's own tables: eight asset classes, covariance matrix from Table 5, market
+  weights from Table 2, `τ = 0.025`, risk aversion ≈ 3.065 (implied by Table 1's
+  equilibrium returns), three views (Int'l Dev. Equity = 5.25% absolute; Int'l Bonds
+  beat US Bonds by 0.25%; US Large and Small Growth beat US Large and Small Value by
+  2%, with `P` row `0.9, −0.9, 0.1, −0.1`), `Ω = diag(τ·PΣP')` =
+  `0.000709, 0.000141, 0.000866`. Our formulas give the paper's Table 6: combined
+  returns `0.07, 0.50, 6.50, 4.32, 7.59, 3.94, 4.93, 6.84` % and new weights
+  `29.88, 15.59, 9.35, 14.82, 1.04, 1.65, 27.81, 3.49` % (to rounding), with weights
+  computed as `(λΣ)⁻¹μ_BL` using `Σ`, not `Σ + M`. This becomes a test fixture.
 - Results match PyPortfolioOpt's `BlackLittermanModel` on the same inputs.
 - Risk parity: risk contributions equal to 1e-6; two-asset case equals inverse volatility.
 - Constraint handling: weights sum to 1, respect bounds.
@@ -122,9 +132,9 @@ invested): feed `μ_BL`, `Σ_BL` to the mean-variance optimiser.
 
 - Black, F. & Litterman, R. (1992). Global portfolio optimization. *Financial Analysts Journal* 48(5).
 - He, G. & Litterman, R. (1999). The intuition behind Black-Litterman model portfolios. Goldman Sachs.
-- Idzorek, T. (2005). A step-by-step guide to the Black-Litterman model.
+- Idzorek, T. (2005). [A step-by-step guide to the Black-Litterman model](https://people.duke.edu/~charvey/Teaching/BA453_2006/Idzorek_onBL.pdf) (read in full for the worked example).
 - Walters, J. (2014). The Black-Litterman model in detail. Meucci, A. (2010). The Black-Litterman approach: original model and extensions.
 - Ledoit, O. & Wolf, M. (2004). Honey, I shrunk the sample covariance matrix. *JPM*.
 - DeMiguel, Garlappi & Uppal (2009). Optimal versus naive diversification. *RFS*.
 - Maillard, Roncalli & Teiletche (2010). The properties of equally weighted risk contribution portfolios. *JPM*.
-- [PyPortfolioOpt Black-Litterman documentation](https://pyportfolioopt.readthedocs.io/en/stable/BlackLitterman.html).
+- [PyPortfolioOpt Black-Litterman documentation](https://pyportfolioopt.readthedocs.io/en/stable/BlackLitterman.html) and [source](https://raw.githubusercontent.com/robertmartin8/PyPortfolioOpt/master/pypfopt/black_litterman.py) (defaults there: `tau = 0.05`, `risk_aversion = 1`, weights normalised to sum to 1).

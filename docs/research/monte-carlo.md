@@ -18,8 +18,10 @@ have been. Each variant tests a **different** risk, and they must not be mixed u
   positions, block lengths are geometric with mean `1/p`, wrapping around the end. The
   resampled series is stationary, unlike fixed-block bootstrap.
 - **Block length**: automatic selection of Politis & White (2004), with the correction
-  in Patton, Politis & White (2009). The Python `arch` package implements both
-  (`optimal_block_length`, `StationaryBootstrap`). **[verify]** exact API names.
+  in Patton, Politis & White (2009). The Python `arch` package implements both:
+  `arch.bootstrap.optimal_block_length(x)` returns columns `b_sb` (stationary) and
+  `b_cb` (circular); `arch.bootstrap.StationaryBootstrap(block_size, ...)` and
+  `CircularBlockBootstrap` do the resampling (confirmed in the `arch` documentation).
 - **Compounding**: resample returns, then compound; for trades, resample per-trade
   returns as a fraction of equity (so sizing scales), not dollar P&L, unless the
   strategy used fixed dollar sizing.

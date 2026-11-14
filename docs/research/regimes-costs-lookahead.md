@@ -33,8 +33,11 @@ does it vanish?
 Cost model components:
 - **Commission**: IBKR-style per-share for US stocks (with per-order minimum and
   percent-of-trade cap) and per-contract for options. The exact current schedule is
-  configuration, loaded from `config/costs.yaml`, and **must be taken from IBKR's
-  published schedule at build time [verify]** — not hard-coded from memory.
+  configuration, loaded from `config/costs.yaml`. **Still open [verify]:** IBKR's
+  pricing pages refused automated access (HTTP 403) on 2026-11-14, so the rates could
+  not be read. The config ships with clearly labelled placeholder rates that the user
+  must confirm against IBKR's pricing page (or their own account's commission reports);
+  every run records the rates used.
 - **Spread**: half-spread paid on every fill. Default by instrument class (large-cap
   ETF ≈ 1 bp; small caps far wider); options use the modelled bid/ask (options-pricing.md).
 - **Slippage / impact**: fixed basis points by default; optional square-root impact
@@ -73,9 +76,10 @@ setting; cost stress = four re-runs + one delayed-fill re-run. Flags: Sharpe hal
 | Time zones and sessions | All timestamps stored in UTC with the exchange time zone recorded; daily bars are stamped at the session close; a strategy cannot see a daily bar before that close. |
 | Outlier dependence | Share of total profit from the top 5% of trades; result with the single best trade removed. |
 
-The truncation test is the standard approach used by other frameworks' look-ahead
-detectors (e.g. freqtrade's lookahead analysis compares signals computed on full versus
-truncated data) **[verify]**.
+The same idea is used by freqtrade's lookahead analysis: it runs a baseline backtest,
+then re-runs on data sliced at each signal and reports any difference in indicator
+values or entries/exits as bias; it does not inspect strategy code (confirmed in its
+[documentation](https://www.freqtrade.io/en/stable/lookahead-analysis/)).
 
 ## Known-answer tests
 

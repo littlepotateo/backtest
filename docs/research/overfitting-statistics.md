@@ -76,8 +76,11 @@ recipe against his text before implementing the price-path variant.
 Test whether the *best* of many rules beats a benchmark, using the stationary bootstrap
 on the matrix of excess returns. Hansen's SPA studentises and discounts clearly poor
 rules, so it does not lose power when junk rules are added (White's RC does). Romano &
-Wolf's StepM identifies *which* rules survive. The `arch` package implements `SPA`,
-`StepM` and `MCS` **[verify]**.
+Wolf's StepM identifies *which* rules survive. The `arch` package implements
+`arch.bootstrap.SPA(benchmark, models, block_size=None, reps=1000, bootstrap='stationary',
+studentize=True)` (also exposed as `RealityCheck`), `StepM` and `MCS` (confirmed in its
+documentation). Inputs are **losses**, so returns are passed negated. Default block
+size is `√T`; we pass the automatic block length instead.
 
 ## Decision
 

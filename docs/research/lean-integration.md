@@ -3,39 +3,54 @@
 LEAN is not part of the first version. This note records what was learned so the door
 stays open, and which design seams exist for it.
 
-## What LEAN is and costs
+## What LEAN is and costs (confirmed from QuantConnect's docs, 2026-11-14)
 
 - Open-source event-driven engine (C#, with Python algorithms), run locally through the
   **LEAN CLI** (`pip install lean`).
-- **Docker is required** for local backtests: they run in the `quantconnect/lean` image.
-- `lean backtest "<project>"` writes results to `<project>/backtests/<timestamp>/`,
-  overridable with `--output`; the main results file is `<backtestId>.json`.
-- **Data** is the real cost. LEAN reads its own on-disk format from a data folder.
-  Free sample data is tiny. Real US equity and, especially, **historical option chain
-  data** comes from QuantConnect's dataset marketplace (paid, per-dataset) or from the
-  QuantConnect cloud. This is the one thing LEAN offers that our engine cannot: real
-  historical option prices.
-- Local use of the CLI needs a QuantConnect account; some CLI features require a paid
-  tier. **[verify]** current pricing and which commands are gated, at the time of integration.
+- **Docker is required**: commands that run the engine locally need Docker installed
+  and running; local backtests run in the `quantconnect/lean` image.
+- **A paid QuantConnect tier is required**: the docs state "To use the CLI, you must be
+  a member in an organization on a paid tier." Whether a local backtest also needs
+  `lean login` is not clearly stated.
+- `lean backtest "<project>"` writes to `<project>/backtests/<timestamp>/`
+  (overridable with `--output`); results are JSON, main file `<backtestId>.json`.
+- **Data** is the real cost. The docs' table lists the US Equity Security Master at
+  $1,200/year (needed for equity backtests), with US Equity and US Equity Options data
+  priced per download on top. Real **historical option chains** are the one thing LEAN
+  offers that our engine cannot.
 
-## Data format (for exporting our cache)  **[verify all of this against the LEAN docs/repo before building]**
+## Data format (from the LEAN repository's data readmes)
 
-Recalled, not confirmed in this pass:
-- Equity daily: `data/equity/usa/daily/<ticker>.zip` containing `<ticker>.csv`, rows
-  `YYYYMMDD HH:MM,open,high,low,close,volume`, prices stored as integers scaled by 10,000.
-- Equity minute: `data/equity/usa/minute/<ticker>/<YYYYMMDD>_trade.zip`, time as
-  milliseconds since midnight.
-- Corporate actions via `map_files/` and `factor_files/` (LEAN adjusts prices itself
-  from raw data).
-- Custom data can instead be fed through a `PythonData` class reading local CSV, which
-  avoids the native format entirely and is the easier first route.
+US equities, New York time zone, prices as integers in "deci-cents" (divide by 10,000):
 
-## Result format  **[verify]**
+| Resolution | Path | CSV inside the zip | Time column |
+|---|---|---|---|
+| daily, hour | `equity/usa/{daily,hour}/<ticker>.zip` | `<ticker>.csv`: `DateTime,Open,High,Low,Close,Volume` | string `YYYYMMDD HH:MM` |
+| minute (second inferred) | `equity/usa/minute/<ticker>/<YYYYMMDD>_{trade,quote}.zip` | e.g. `20140605_aapl_minute_trade.csv`: `Time,Open,High,Low,Close,Volume` | milliseconds since midnight |
+| tick | `equity/usa/tick/<ticker>/<YYYYMMDD>_{trade,quote}.zip` | trade: `Time,TradeSale,Volume,Exchange,Condition,Suspicious` | milliseconds since midnight (fractional) |
 
-The result JSON contains charts (including the strategy equity series), orders, closed
-trades, and summary statistics. Field names have changed between LEAN versions
-(PascalCase → camelCase), so the converter must be written against a real file produced
-by the version in use, with a version check.
+US equity options (minute only documented): `option/usa/minute/<symbol>/<YYYYMMDD>_<tickType>_<optionType>.zip`,
+with `tickType` one of `trade`, `quote`, `openinterest`; one CSV per contract named
+`<YYYYMMDD>_<symbol>_<resolution>_<tickType>_<optionType>_<optionStyle>_<decicentStrike>_<expiryYYYYMMDD>.csv`.
+Trade and quote columns as for equities; open interest is `Time,Open Interest`.
+
+Not confirmed: map/factor file formats for corporate actions; time zone of option data.
+
+**Easier first route — custom data.** A `PythonData` subclass with
+`get_source(self, config, date, is_live)` returning a `SubscriptionDataSource` using
+`SubscriptionTransportMedium.LOCAL_FILE`, and `reader(self, config, line, date, is_live)`
+returning a data point with `symbol`, `time`, `end_time` and `value` set. This lets a
+`lean` backend read our cache exported as plain CSV without the native format.
+
+## Result format (from `Common/Result.cs` and `BacktestResultPacket.cs`)
+
+Properties on the result object: `Charts`, `Orders`, `OrderEvents`, `ProfitLoss`,
+`Statistics`, `RuntimeStatistics`, `TotalPerformance`, `State`, `AlgorithmConfiguration`,
+plus `RollingWindow` for backtests. The C# names are PascalCase with no renaming
+attribute, but the casing actually written to `<backtestId>.json` was **not confirmed**
+(it has differed between LEAN versions), and where closed trades sit inside
+`TotalPerformance` was not confirmed. The converter must therefore be written against
+a real output file, accept either casing, and check the LEAN version.
 
 ## Seams already in the design
 
@@ -72,6 +87,11 @@ overfitting statistics, explanations, dashboard — is backend-agnostic. Two cav
 
 ## Sources
 
+- LEAN repository: [equity data readme](https://raw.githubusercontent.com/QuantConnect/Lean/master/Data/equity/readme.md),
+  [option data readme](https://raw.githubusercontent.com/QuantConnect/Lean/master/Data/option/readme.md),
+  [Result.cs](https://raw.githubusercontent.com/QuantConnect/Lean/master/Common/Result.cs).
+- [LEAN CLI getting started](https://www.quantconnect.com/docs/v2/lean-cli/key-concepts/getting-started),
+  [custom data key concepts](https://www.quantconnect.com/docs/v2/writing-algorithms/importing-data/streaming-data/key-concepts).
 - [LEAN CLI: backtesting](https://www.quantconnect.com/docs/v2/lean-cli/backtesting),
   [deployment](https://www.quantconnect.com/docs/v2/lean-cli/backtesting/deployment),
   [datasets](https://www.quantconnect.com/docs/v2/lean-cli/datasets),

@@ -16,6 +16,10 @@ The build follows the "Decision" section of each write-up.
 
 ## Status and how far to trust these
 
+- **Second pass, 2026-11-14:** primary pages were read for the LEAN data and result
+  formats, the `arch` library API, PyPortfolioOpt's Black-Litterman source, freqtrade's
+  look-ahead analysis, and Idzorek (2005) in full; Idzorek's worked example was
+  reproduced numerically. IBKR's commission pages could not be read (access refused).
 - **First pass, 2026-11-13.** Built from web search plus the standard literature. The
   searches mostly returned secondary sources (blogs, library docs, abstracts); the primary
   papers are cited but were **not re-read in full** in this pass.
