@@ -91,6 +91,15 @@ class Context:
         lo = 0 if n is None else max(0, j + 1 - n)
         return arr[lo:j + 1]
 
+    def returns(self, symbols: list[str] | None = None, n: int | None = None) -> pd.DataFrame:
+        """Per-bar returns of several symbols, aligned by time, up to and including the
+        current bar (the last `n` rows if given). Rows where any symbol has no bar are
+        dropped."""
+        symbols = list(symbols or self._sim.data)
+        closes = pd.DataFrame({s: self.history(s)["close"] for s in symbols}).dropna()
+        out = closes.pct_change().iloc[1:]
+        return out if n is None else out.iloc[-n:]
+
     def price(self, symbol: str) -> float:
         """Latest known close for `symbol` (NaN if it has not traded yet)."""
         return self._sim.last_close.get(symbol, float("nan"))
@@ -129,6 +138,16 @@ class Context:
     def order_target(self, symbol: str, qty: float) -> None:
         """Trade so that the position becomes `qty` shares."""
         self._sim.place(symbol, qty - self.position(symbol), "target", replace=True)
+
+    def rebalance(self, weights: dict) -> None:
+        """Trade toward target weights ({symbol: fraction of equity}). Symbols in the
+        universe that are not mentioned are sold. Sales fill before purchases."""
+        for symbol in self._sim.data:
+            self.order_target_percent(symbol, float(weights.get(symbol, 0.0)))
+
+    def record(self, name: str, value) -> None:
+        """Save something for the run report (e.g. the weights chosen at a rebalance)."""
+        self._sim.records.append({"time": self.now.isoformat(), "name": name, "value": value})
 
     def order_target_percent(self, symbol: str, pct: float) -> None:
         """Trade so that the position is `pct` of account equity (1.0 = fully invested,

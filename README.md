@@ -7,8 +7,8 @@ Method research: `docs/research/`
 
 ## Status
 
-Built: data cache, stock/ETF engine (daily and intraday), metrics, and the validation tests (walk-forward, Monte Carlo, Kelly, overfitting statistics, regimes, cost stress, look-ahead check).
-Not built yet: portfolio allocation (Black-Litterman), options, written explanations and the Claude Code skill, the dashboard.
+Built: data cache, stock/ETF engine (daily and intraday), metrics, the validation tests (walk-forward, Monte Carlo, Kelly, overfitting statistics, regimes, cost stress, look-ahead check), and portfolio allocation (equal weight, inverse volatility, risk parity, minimum variance, mean-variance, Black-Litterman).
+Not built yet: options, written explanations and the Claude Code skill, the dashboard.
 
 ## Setup
 
@@ -44,5 +44,7 @@ Each run is saved under `runs/` with its equity curve, fills, trades, `metrics.j
 - Idle cash earns the 13-week Treasury bill yield minus 1%; borrowed cash pays it plus 2.5%.
 - Orders fill at the next bar's open.
 - Short borrow fees are not modelled.
+- For rebalanced portfolios, "trades" counts every partial sale at a rebalance, so win rate and profit factor say little; read the return and drawdown figures instead.
+- The example ETF strategy's Black-Litterman reference portfolio is a rough assumption, not measured market weights.
 
 Results are not investment advice.
