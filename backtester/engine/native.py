@@ -337,7 +337,7 @@ class NativeBackend:
         return {"pricing": "Black-Scholes-Merton on a parametric volatility surface (modelled, not quotes)",
                 "fee_per_contract": sim.config.option_fee_per_contract,
                 "open_positions": {str(c): q for c, q in sim.opt.positions.items()},
-                "underlyings": {s: {"volatility_source": m.surface.source, "dividend_yield": m.dividend_yield,
+                "underlyings": {s: {"volatility_source": m.surface.source, "dividend_yield": "trailing one-year, by date" if hasattr(m.dividend_yield, "index") else m.dividend_yield,
                                     **asdict(m.surface.params)} for s, m in models.items()}}
 
     @staticmethod

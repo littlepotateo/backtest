@@ -50,7 +50,7 @@ def _day(now) -> dt.date:
 
 class OptionModel:
     def __init__(self, symbol: str, surface: VolSurface, rates: pd.Series | None = None,
-                 dividend_yield: float = 0.0, strike_step: float | None = None,
+                 dividend_yield=0.0, strike_step: float | None = None,
                  weeklies: bool = False):
         self.symbol, self.surface, self.rates = symbol, surface, rates
         self.dividend_yield, self.strike_step, self.weeklies = dividend_yield, strike_step, weeklies
@@ -61,6 +61,15 @@ class OptionModel:
             return 0.0
         i = self.rates.index.searchsorted(pd.Timestamp(_day(now)), side="right") - 1
         return float(self.rates.iloc[i]) if i >= 0 else 0.0
+
+    def q(self, now, at_open: bool = False) -> float:
+        """Dividend yield known at `now`: a number, or a series looked up by date."""
+        dy = self.dividend_yield
+        if not isinstance(dy, pd.Series):
+            return float(dy)
+        day = pd.Timestamp(_day(now) - dt.timedelta(days=1) if at_open else _day(now))
+        i = dy.index.searchsorted(day, side="right") - 1
+        return float(dy.iloc[i]) if i >= 0 else 0.0
 
     def years_left(self, contract: OptionContract, now, at_open: bool = False) -> float:
         days = (contract.expiry - _day(now)).days
@@ -94,7 +103,7 @@ class OptionModel:
     # --- valuation --------------------------------------------------------------------
     def _inputs(self, contract, spot, now, at_open):
         t = self.years_left(contract, now, at_open)
-        r, q = self.rate(now), self.dividend_yield
+        r, q = self.rate(now), self.q(now, at_open)
         forward = spot * math.exp((r - q) * t)
         asof = _day(now) - dt.timedelta(days=1) if at_open else now   # today's level is unknown at the open
         vol = self.surface.vol(asof, t, contract.strike, forward) if t > 0 else 0.2
@@ -126,7 +135,7 @@ class OptionModel:
         grid = self.strikes(spot)
         if delta is not None:
             t = (expiry - today).days / 365
-            r, q = self.rate(now), self.dividend_yield
+            r, q = self.rate(now), self.q(now)
             forward = spot * math.exp((r - q) * t)
             vols = self.surface.vol(now, t, grid, forward)
             deltas = np.abs(bs.greeks(spot, grid, t, r, q, vols, right)["delta"])

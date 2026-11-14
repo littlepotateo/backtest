@@ -24,7 +24,7 @@ def contract_surface(model: OptionModel, now, spot: float, greek: str = "gamma",
         raise ValueError(f"greek must be one of {GREEKS}")
     strikes = np.linspace(spot * (1 - width), spot * (1 + width), n)
     days = np.linspace(1, max_days, n)
-    r, q = model.rate(now), model.dividend_yield
+    r, q = model.rate(now), model.q(now)
     z = np.empty((len(days), len(strikes)))
     for i, d in enumerate(days):
         t = d / 365
@@ -47,7 +47,7 @@ def position_surface(model: OptionModel, positions: dict[OptionContract, float],
     last = max((c.expiry - today).days for c in positions)
     prices = np.linspace(spot * (1 - width), spot * (1 + width), n)
     forward_days = np.linspace(0, max(last - 0.5, 0.5), n)
-    r, q = model.rate(now), model.dividend_yield
+    r, q = model.rate(now), model.q(now)
     z = np.zeros((len(forward_days), len(prices)))
     for i, fd in enumerate(forward_days):
         for c, qty in positions.items():

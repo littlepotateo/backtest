@@ -68,10 +68,14 @@ def build_option_models(symbols: list[str], data: dict[str, pd.DataFrame], rates
         else:
             # realised volatility runs below implied on average; 1.2 is an assumption
             level, source = realised_vol(df["close"]) * 1.2, "21-day realised volatility x 1.2 (assumption)"
-        af = df["adj_factor"] if "adj_factor" in df else None
-        years = max((df.index[-1] - df.index[0]).days / 365.25, 1e-9)
-        q = float(np.log(af.iloc[-1] / af.iloc[0]) / years) if af is not None and af.iloc[0] > 0 else 0.0
-        models[s] = OptionModel(s, VolSurface(p, level, source), rates, max(q, 0.0))
+        if "adj_factor" in df:
+            # trailing one-year dividend yield, known at each date (no future data)
+            q = np.log(df["adj_factor"] / df["adj_factor"].shift(252)).clip(lower=0).fillna(0.0)
+            q.index = q.index.tz_convert("America/New_York").normalize().tz_localize(None)
+            q = q[~q.index.duplicated(keep="last")]
+        else:
+            q = 0.0
+        models[s] = OptionModel(s, VolSurface(p, level, source), rates, q)
     return models
 
 
