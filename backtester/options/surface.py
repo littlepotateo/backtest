@@ -30,6 +30,8 @@ class SurfaceParams:
     term: float = 0.04         # volatility scales with (T / 30 days) ** term
     half_spread: float = 0.02  # half the bid/ask spread as a fraction of the option's value
     min_half_spread: float = 0.01   # ... but at least this many dollars per share
+    call_wing: float = 1.5     # skew stops lowering volatility beyond this many standard
+                               # deviations above the money (real call wings flatten)
     calibrated: bool = False   # True once fitted to a live chain
 
     @classmethod
@@ -82,7 +84,7 @@ class VolSurface:
         t = np.maximum(np.asarray(t, dtype=float), 1 / 365)
         atm = self.atm(date, t)
         m = np.log(np.asarray(strike, dtype=float) / forward) / (atm * np.sqrt(t))
-        m = np.clip(m, -4.0, 4.0)
+        m = np.clip(m, -4.0, self.params.call_wing)
         shape = np.maximum(1 + self.params.skew * m + self.params.curvature * m ** 2, 0.3)
         out = np.clip(atm * shape, VOL_MIN, VOL_MAX)
         return float(out) if out.ndim == 0 else out

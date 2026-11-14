@@ -287,8 +287,9 @@ def format_validation(v: dict) -> str:
             lines.append(f"    probability of backtest overfitting: {_pct(o['pbo']['pbo'])}")
         if "spa" in o:
             lines.append(f"    best of grid versus holding cash, allowing for selection: p = {_num(o['spa']['p_value'])}")
-        lines.append(f"    timing permutation p = {_num(o['permutation']['p_value'])}"
-                     + (f"; random-entry p = {_num(o['random_entry']['p_value'])}" if "p_value" in o["random_entry"] else ""))
+        if "p_value" in o["permutation"]:
+            lines.append(f"    timing permutation p = {_num(o['permutation']['p_value'])}"
+                         + (f"; random-entry p = {_num(o['random_entry']['p_value'])}" if "p_value" in o["random_entry"] else ""))
     rg = v.get("regimes")
     if rg:
         parts = [f"{r['regime']} {_pct(r['total_return'])} total ({_pct(r['share_of_time'])} of time)"
@@ -301,6 +302,10 @@ def format_validation(v: dict) -> str:
         if cs.get("break_even_multiplier"):
             lines.append(f"    break-even at about {_num(cs['break_even_multiplier'], 1)}x assumed costs "
                          f"({_num(cs['break_even_cost_bps_per_fill'], 1)} basis points per fill)")
+    op = v.get("option_pricing")
+    if op:
+        lines.append("  Option-pricing sensitivity, total return: "
+                     + "; ".join(f"{c['case']} {_pct(c['total_return'])}" for c in op["cases"]))
     lines.append("")
     if v["flags"]:
         lines.append("  Flags")

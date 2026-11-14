@@ -237,3 +237,60 @@ def test_options_strategy_passes_the_lookahead_test(bars):
     assert len(res.trades) >= 8 and res.meta["options"]["underlyings"]["A"]["volatility_source"] == "supplied"
     assert checks.lookahead_test(r)["passed"]
     assert res.meta["config"]["use_adjusted"] is False              # options run on real prices
+
+
+def test_gamma_surfaces():
+    from backtester.options import greeks_surface as gs
+    m, now = model(SurfaceParams()), pd.Timestamp("2024-01-02 21:00", tz="UTC")
+    s = gs.contract_surface(m, now, 100.0, "gamma", n=41)
+    assert s["z"].shape == (41, 41) and (s["z"] >= 0).all()
+    i, j = 10, 20                                                  # spot-check against the closed form
+    t = s["y"][i] / 365
+    vol = m.surface.vol(now, t, s["x"][j], 100.0)
+    assert s["z"][i, j] == pytest.approx(bs.greeks(100.0, s["x"][j], t, 0, 0, vol, "C")["gamma"])
+    assert abs(s["x"][np.argmax(s["z"][0])] - 100) < 3              # ridge at the money near expiry
+    assert s["z"][0].max() > s["z"][-1].max()                       # sharper as expiry nears
+    dollar = gs.contract_surface(m, now, 100.0, "gamma", n=41, dollar=True)
+    assert dollar["z"] == pytest.approx(s["z"] * 100.0)
+    straddle = {OptionContract("A", FEB, 100.0, "C"): 1, OptionContract("A", FEB, 100.0, "P"): 1}
+    long_gamma = gs.position_surface(m, straddle, now, 100.0, "gamma", n=31)["z"]
+    assert (long_gamma >= 0).all() and long_gamma.max() > 0        # a long straddle is never short gamma
+    condor = {OptionContract("A", FEB, 90.0, "P"): 1, OptionContract("A", FEB, 95.0, "P"): -1,
+              OptionContract("A", FEB, 105.0, "C"): -1, OptionContract("A", FEB, 110.0, "C"): 1}
+    g = gs.position_surface(m, condor, now, 100.0, "gamma", width=0.03, n=31)
+    assert (g["z"] < 0).all()                                       # short gamma between the short strikes
+    v = gs.position_surface(m, condor, now, 100.0, "value", width=0.3, n=31)
+    assert v["z"][-1].min() == pytest.approx(-500, abs=30)          # at expiry: worst case is the wing width
+    with pytest.raises(ValueError):
+        gs.contract_surface(m, now, 100.0, "rho")
+
+
+def test_gamma_surface_html(tmp_path):
+    from backtester.options import greeks_surface as gs
+    m, now = model(SurfaceParams()), pd.Timestamp("2024-01-02 21:00", tz="UTC")
+    out = tmp_path / "g.html"
+    gs.write_html(gs.contract_surface(m, now, 100.0, n=10), out, "Gamma")
+    text = out.read_text()
+    assert "Plotly.newPlot" in text and '"type": "surface"' in text
+
+
+def test_option_pricing_sensitivity_is_reported(bars):
+    from backtester.analysis.findings import validate
+    rng = np.random.default_rng(1)
+    data = {"A": bars(100 * np.exp(np.cumsum(rng.normal(0.0003, 0.01, 400))))}
+
+    class Monthly(Strategy):
+        universe = ["A"]
+        options_on = ["A"]
+
+        def on_bar(self, ctx):
+            if ctx.position("A") < 100:
+                ctx.order_target("A", 100)
+            elif not ctx.options.positions("A"):
+                ctx.options.order(ctx.options.select("A", "C", 30, delta=0.3), -1)
+
+    v = validate(runner(Monthly, data, params=SurfaceParams()), tests=["montecarlo", "overfitting"], n_paths=100)
+    cases = {c["case"]: c["total_return"] for c in v["option_pricing"]["cases"]}
+    assert cases["volatility level +10%"] > cases["as configured"] > cases["volatility level -15%"]   # sellers earn more
+    assert any(f["test"] == "option pricing" for f in v["flags"])
+    assert "skipped" in v["overfitting"]["permutation"]
