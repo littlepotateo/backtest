@@ -43,24 +43,61 @@ def load_rates(cache: Cache) -> pd.Series | None:
     return close[~close.index.duplicated(keep="last")]
 
 
+def build_option_models(symbols: list[str], data: dict[str, pd.DataFrame], rates: pd.Series | None,
+                        cache: Cache | None = None, levels: dict[str, pd.Series] | None = None,
+                        scale: tuple[float, float] = (1.0, 1.0),
+                        surface_config: str = "config/vol_surface.toml") -> dict:
+    """An OptionModel per underlying. The volatility level comes from `levels` if given,
+    else the cached volatility index for that symbol, else the underlying's own realised
+    volatility. `scale` multiplies the level and the skew (pricing-sensitivity test)."""
+    import numpy as np
+
+    from backtester.options.chain import OptionModel
+    from backtester.options.surface import VOL_INDEX, SurfaceParams, VolSurface, realised_vol
+    models = {}
+    for s in symbols:
+        df = data[s]
+        params = SurfaceParams.load(s, surface_config).scaled(*scale)
+        index = VOL_INDEX.get(s.upper())
+        if levels and s in levels:
+            level, source = levels[s], "supplied"
+        elif index and cache is not None and cache.has(index, "1d"):
+            level, source = cache.load(index, "1d")["close"] / 100, f"{index} (volatility index)"
+        else:
+            # realised volatility runs below implied on average; 1.2 is an assumption
+            level, source = realised_vol(df["close"]) * 1.2, "21-day realised volatility x 1.2 (assumption)"
+        af = df["adj_factor"] if "adj_factor" in df else None
+        years = max((df.index[-1] - df.index[0]).days / 365.25, 1e-9)
+        q = float(np.log(af.iloc[-1] / af.iloc[0]) / years) if af is not None and af.iloc[0] > 0 else 0.0
+        models[s] = OptionModel(s, VolSurface(params, level, source), rates, max(q, 0.0))
+    return models
+
+
 class Runner:
     """Holds a strategy class with its data loaded, so tests can re-run it cheaply with
     different parameters, settings or price data."""
 
     def __init__(self, strategy_cls: type[Strategy], config: RunConfig, *,
                  cache: Cache | None = None, data: dict[str, pd.DataFrame] | None = None,
-                 rates: pd.Series | None = None, backend: str = "native"):
+                 rates: pd.Series | None = None, backend: str = "native",
+                 option_levels: dict[str, pd.Series] | None = None):
         self.strategy_cls, self.config, self.backend = strategy_cls, config, backend
         self.data_meta = None
         if data is None:
             cache = cache or Cache()
             data, self.data_meta = load_data(strategy_cls(), cache, config)
             rates = load_rates(cache) if rates is None else rates
-        self.data, self.rates = data, rates
+        self.data, self.rates, self.cache = data, rates, cache
+        self.option_levels = option_levels
+        if strategy_cls.options_on and config.use_adjusted:
+            # option strikes and prices live on real (unadjusted) prices
+            import dataclasses
+            self.config = dataclasses.replace(config, use_adjusted=False)
         self.runs = 0
 
     def run(self, params: dict | None = None, *, schedule: list | None = None,
-            data: dict[str, pd.DataFrame] | None = None, **overrides) -> RunResult:
+            data: dict[str, pd.DataFrame] | None = None,
+            option_scale: tuple[float, float] = (1.0, 1.0), **overrides) -> RunResult:
         """`schedule` is [(timestamp, params), ...]: parameters switch at those times
         while positions carry over (used by walk-forward)."""
         import dataclasses
@@ -82,16 +119,23 @@ class Runner:
             strategy = cls(**(params or {}))
         config = dataclasses.replace(self.config, **overrides) if overrides else self.config
         self.runs += 1
-        return get_backend(self.backend).run(strategy, data or self.data, config,
-                                             self.data_meta, self.rates)
+        use = data or self.data
+        models = build_option_models(cls.options_on, use, self.rates, self.cache, self.option_levels,
+                                     option_scale) if cls.options_on else None
+        return get_backend(self.backend).run(strategy, use, config, self.data_meta, self.rates, models)
 
 
 def run_backtest(strategy: Strategy, config: RunConfig, *, cache: Cache | None = None,
                  data: dict[str, pd.DataFrame] | None = None,
                  backend: str = "native") -> RunResult:
+    import dataclasses
     data_meta, rates = None, None
     if data is None:
         cache = cache or Cache()
         data, data_meta = load_data(strategy, cache, config)
         rates = load_rates(cache)
-    return get_backend(backend).run(strategy, data, config, data_meta, rates)
+    models = None
+    if strategy.options_on:
+        config = dataclasses.replace(config, use_adjusted=False)
+        models = build_option_models(strategy.options_on, data, rates, cache)
+    return get_backend(backend).run(strategy, data, config, data_meta, rates, models)

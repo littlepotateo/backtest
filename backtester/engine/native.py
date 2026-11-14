@@ -48,6 +48,8 @@ class _Sim:
         self.fills: list[tuple] = []
         self.trades: list[tuple] = []
         self.warnings: Counter = Counter()
+        self.opt = None                      # OptionBook when the strategy trades options
+        self.dividends = 0.0
         self._sessions = {}
         for s, df in data.items():
             local = df.index.tz_convert(config.timezone)
@@ -68,7 +70,20 @@ class _Sim:
         return sum(abs(q) * self.last_close[s] for s, q in self.positions.items() if q)
 
     def equity(self) -> float:
-        return self.cash + sum(q * self.last_close[s] for s, q in self.positions.items() if q)
+        stock = sum(q * self.last_close[s] for s, q in self.positions.items() if q)
+        return self.cash + stock + (self.opt.market_value() if self.opt else 0.0)
+
+    def deliver(self, symbol: str, qty: float, price: float) -> None:
+        """Shares changing hands through option assignment: no slippage, fee or limits."""
+        self._fill(symbol, qty, price, free=True)
+
+    def pay_dividends(self) -> None:
+        for s, q in self.positions.items():
+            if q and self.bar_now.get(s) and "dividend" in self.arrays[s]:
+                d = float(self.arrays[s]["dividend"][self.cursor[s]])
+                if d:
+                    self.cash += q * d
+                    self.dividends += q * d
 
     def accrue_interest(self, rates) -> None:
         """Once per calendar day: interest on idle cash, or on borrowed cash."""
@@ -128,16 +143,16 @@ class _Sim:
             raw = float(self.arrays[symbol][price_field][self.cursor[symbol]])
             self._fill(symbol, qty, raw)
 
-    def _fill(self, symbol: str, qty: float, raw_price: float) -> None:
+    def _fill(self, symbol: str, qty: float, raw_price: float, free: bool = False) -> None:
         cfg, costs = self.config, self.config.costs
         pos = self.positions.get(symbol, 0.0)
         target = pos + qty
-        if not cfg.allow_short and target < 0:
+        if not free and not cfg.allow_short and target < 0:
             target = 0.0
             self.warnings["short_orders_blocked"] += 1
         side = 1 if target > pos else -1
-        price = costs.fill_price(raw_price, side)
-        if abs(target) > abs(pos) or target * pos < 0:
+        price = raw_price if free else costs.fill_price(raw_price, side)
+        if not free and (abs(target) > abs(pos) or target * pos < 0):
             # the order adds exposure: keep gross exposure within the leverage limit
             others = self.gross() - abs(pos) * self.last_close.get(symbol, raw_price)
             equity = self.equity()
@@ -154,7 +169,7 @@ class _Sim:
         qty = target - pos
         if qty == 0:
             return
-        fee = costs.commission(abs(qty), price)
+        fee = 0.0 if free else costs.commission(abs(qty), price)
         slip = abs(qty) * abs(price - raw_price)
         self.cash -= qty * price + fee
         self.fills.append((self.now, symbol, qty, price, fee, slip))
@@ -198,8 +213,10 @@ class NativeBackend:
     name = "native"
 
     def run(self, strategy: Strategy, data: dict[str, pd.DataFrame], config: RunConfig,
-            data_meta: dict | None = None, rates: pd.Series | None = None) -> RunResult:
-        """`rates` is an optional annual benchmark interest rate (decimal) by date."""
+            data_meta: dict | None = None, rates: pd.Series | None = None,
+            option_models: dict | None = None) -> RunResult:
+        """`rates` is an optional annual benchmark interest rate (decimal) by date.
+        `option_models` maps underlying symbol to an OptionModel for options strategies."""
         if config.fill not in ("next_open", "close"):
             raise ValueError("fill must be 'next_open' or 'close'")
         missing = [s for s in strategy.universe if s not in data]
@@ -217,6 +234,13 @@ class NativeBackend:
         index_of = {s: df.index.get_indexer(timeline) for s, df in data.items()}
 
         sim = _Sim(strategy, data, config)
+        for s, df in data.items():
+            if "dividend" in df.columns:
+                sim.arrays[s]["dividend"] = df["dividend"].to_numpy()
+        if option_models:
+            from backtester.engine.options_book import OptionBook
+            sim.opt = OptionBook(sim, option_models, config.option_fee_per_contract,
+                                 config.option_fee_min_per_order)
         ctx = Context(sim)
         started = False
         times, equity, exposure = [], [], []
@@ -236,11 +260,23 @@ class NativeBackend:
                 strategy.init(ctx)
                 started = True
             sim.accrue_interest(rates)
+            sim.pay_dividends()                       # to holders of record at the prior close
             if config.fill == "next_open":
                 sim.fill_pending("open")
+                if sim.opt:
+                    sim.opt.fill_pending()
             for s in data:
                 if sim.bar_now[s]:
                     sim.last_close[s] = float(sim.arrays[s]["close"][sim.cursor[s]])
+            if sim.opt:
+                sim.opt.mark()
+                sim.opt.settle_expired()
+                upcoming = {}
+                for s in data:
+                    j = sim.cursor.get(s, -1) + 1
+                    if "dividend" in sim.arrays[s] and 0 < j < len(sim.arrays[s]["dividend"]):
+                        upcoming[s] = float(sim.arrays[s]["dividend"][j])
+                sim.opt.early_assignment(upcoming)     # dividends are announced in advance
             strategy.on_bar(ctx)
             if config.fill == "close":
                 sim.fill_pending("close")
@@ -266,6 +302,8 @@ class NativeBackend:
             "warnings": dict(sim.warnings),
             "records": sim.records,
             "interest": {"earned": sim.interest_earned, "paid": sim.interest_paid},
+            "dividends_received": sim.dividends,
+            "options": self._option_meta(sim, option_models),
             "notes": self._notes(config, rates),
         }
         return RunResult(
@@ -278,11 +316,29 @@ class NativeBackend:
 
     @staticmethod
     def _prepare(df: pd.DataFrame, config: RunConfig) -> pd.DataFrame:
-        if config.use_adjusted and "adj_factor" in df.columns:
-            df = df.copy()
+        if "adj_factor" not in df.columns:
+            return df
+        df = df.copy()
+        if config.use_adjusted:
             for c in ("open", "high", "low", "close"):
                 df[c] = df[c] * df["adj_factor"]
+        elif config.pay_dividends:
+            # a rise in the adjustment factor marks an ex-dividend date
+            af = df["adj_factor"]
+            step = 1 - af.shift(1) / af
+            df["dividend"] = (df["close"].shift(1) * step).where(step > 1e-6, 0.0).fillna(0.0)
         return df
+
+    @staticmethod
+    def _option_meta(sim, models) -> dict | None:
+        if not models:
+            return None
+        from dataclasses import asdict
+        return {"pricing": "Black-Scholes-Merton on a parametric volatility surface (modelled, not quotes)",
+                "fee_per_contract": sim.config.option_fee_per_contract,
+                "open_positions": {str(c): q for c, q in sim.opt.positions.items()},
+                "underlyings": {s: {"volatility_source": m.surface.source, "dividend_yield": m.dividend_yield,
+                                    **asdict(m.surface.params)} for s, m in models.items()}}
 
     @staticmethod
     def _notes(config: RunConfig, rates=None) -> list[str]:
@@ -297,4 +353,6 @@ class NativeBackend:
         if rates is None:
             notes.append("No interest-rate data: cash interest and margin interest are zero.")
         notes.append("Short borrow fees are not modelled.")
+        if not config.use_adjusted and config.pay_dividends:
+            notes.append("Prices are unadjusted; dividends are paid in cash on ex-dividend dates.")
         return notes

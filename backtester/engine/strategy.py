@@ -25,6 +25,7 @@ class Strategy:
     params: dict = {}          # default parameters; override per run
     param_grid: dict = {}      # values to try per parameter, e.g. {"fast": [20, 50]}
     warmup_bars: int = 0       # bars of history wanted before the first tradable bar
+    options_on: list[str] = []  # underlyings whose options the strategy trades
 
     @classmethod
     def valid_params(cls, params: dict) -> bool:
@@ -56,11 +57,62 @@ class Strategy:
         raise NotImplementedError
 
 
+class OptionsApi:
+    """Options access for a strategy (`ctx.options`). Prices are modelled, not quotes.
+    Quantities are in contracts (100 shares each); orders fill at the next bar's open."""
+
+    def __init__(self, sim: "_Sim"):
+        self._sim = sim
+
+    def _book(self):
+        if self._sim.opt is None:
+            raise RuntimeError("this strategy does not declare `options_on`")
+        return self._sim.opt
+
+    def select(self, symbol: str, right: str, dte: int, *, delta: float | None = None,
+               strike: float | None = None, pct: float | None = None, min_dte: int = 1):
+        """The listed contract nearest to `dte` days to expiry and to one of: `delta`
+        (e.g. 0.30), `strike`, or `pct` of the current price (e.g. 1.05)."""
+        model = self._book().model_for(symbol)
+        return model.select(self._sim.now, self._sim.last_close[symbol], right, dte,
+                            delta=delta, strike=strike, pct=pct, min_dte=min_dte)
+
+    def price(self, contract) -> float:
+        """Modelled mid price per share at the latest close."""
+        return self._book().model(contract).value(contract, self._sim.last_close[contract.underlying], self._sim.now)
+
+    def greeks(self, contract) -> dict:
+        return self._book().model(contract).greeks(contract, self._sim.last_close[contract.underlying], self._sim.now)
+
+    def days_left(self, contract) -> int:
+        return (contract.expiry - self._sim.now.tz_convert(self._sim.config.timezone).date()).days
+
+    def position(self, contract) -> float:
+        return self._book().positions.get(contract, 0.0)
+
+    def positions(self, symbol: str | None = None) -> dict:
+        """Open option positions {contract: contracts}, optionally for one underlying."""
+        return {c: q for c, q in self._book().positions.items() if symbol is None or c.underlying == symbol}
+
+    def order(self, contract, contracts: float) -> None:
+        """Buy (`contracts` > 0) or sell (< 0). Orders placed on the same bar fill
+        together and are rejected together if the resulting book is not defined-risk."""
+        self._book().place(contract, contracts)
+
+    def close(self, contract) -> None:
+        self.order(contract, -self.position(contract))
+
+    def close_all(self, symbol: str | None = None) -> None:
+        for c in list(self.positions(symbol)):
+            self.close(c)
+
+
 class Context:
     """What a strategy can see and do at the current bar."""
 
     def __init__(self, sim: "_Sim"):
         self._sim = sim
+        self.options = OptionsApi(sim)
 
     # --- time -------------------------------------------------------------------
     @property

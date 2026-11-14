@@ -198,7 +198,10 @@ def test_adjusted_prices_are_used_by_default(bars):
     adj = run(BuyAndHold(), {"A": df}, fractional_shares=True)
     raw = run(BuyAndHold(), {"A": df}, fractional_shares=True, use_adjusted=False)
     assert adj.equity.iloc[-1] == pytest.approx(200_000)
-    assert raw.equity.iloc[-1] == pytest.approx(100_000)
+    assert raw.equity.iloc[-1] == pytest.approx(150_000)        # price flat, 50 a share paid in cash
+    assert raw.meta["dividends_received"] == pytest.approx(50_000)
+    bare = run(BuyAndHold(), {"A": df}, fractional_shares=True, use_adjusted=False, pay_dividends=False)
+    assert bare.equity.iloc[-1] == pytest.approx(100_000)
 
 
 def test_intraday_session_helpers():
