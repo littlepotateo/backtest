@@ -153,3 +153,28 @@ historical data — also the plug-in point for QuantConnect/paid option data).
   [EliteTrader thread 1](https://www.elitetrader.com/et/threads/backtesting-options-strategy-without-option-historical-data.254414/),
   [EliteTrader thread 2](https://elitetrader.com/et/threads/creating-synthetic-option-prices-for-backtest.372787),
   [Nasdaq: 7 pitfalls](https://www.nasdaq.com/articles/avoid-these-7-options-backtesting-pitfalls-2019-07-01).
+
+
+## Results of the first implementation (2026-11-14)
+
+- **Calibration to real quotes.** Seven SPY quotes from the IBKR connector (bid/ask from
+  the 2026-11-13 close, shown by the connector as frozen delayed data) fit with a mean
+  price error of 3.7% and a worst error of 7.3% when the level is fitted to that day
+  (`data/calibration/SPY-2026-11-13.report.json`). Implied volatility ran from 11% to 26%
+  across strikes, so the skew is large (fitted -0.285 per standard deviation).
+- **The level is not stable between sources.** A level fitted to the Cboe PutWrite index
+  over 2006-2015 (ratio 0.94 of VIX) reproduces that index's 6.70% a year by construction;
+  out of sample, 2016-2026, the model gives 9.4% against the index's 8.4%. The same 0.94
+  ratio overprices the 2026-11-13 option chain by about 40% on average, because VIX
+  overstated at-the-money volatility less on that day than on average. A single level
+  cannot be right on every date. Every options run therefore reports sensitivity to
+  the level and the skew.
+- **BuyWrite comparison not done:** Yahoo returned only one data point for the Cboe
+  BuyWrite index (^BXM), so only the PutWrite index (^PUT) was used.
+- **Found by the look-ahead test:** the first version of the dividend yield used the whole
+  history's average, which leaked future dividends into past option prices. It is now a
+  trailing one-year yield known at each date, and the covered-call strategy passes the
+  truncation test.
+- **Gamma surfaces:** see `docs/images/spy_gamma_contract.png` (call dollar gamma over
+  strike and days to expiry) and `docs/images/spy_condor_gamma.png` (an iron condor's
+  position gamma over price and days forward).

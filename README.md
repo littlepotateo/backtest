@@ -8,7 +8,8 @@ Method research: `docs/research/`
 ## Status
 
 Built: data cache, stock/ETF engine (daily and intraday), metrics, the validation tests (walk-forward, Monte Carlo, Kelly, overfitting statistics, regimes, cost stress, look-ahead check), and portfolio allocation (equal weight, inverse volatility, risk parity, minimum variance, mean-variance, Black-Litterman).
-Not built yet: options, written explanations and the Claude Code skill, the dashboard.
+Options (stage 5): Black-Scholes pricing on a calibrated volatility surface, a synthetic chain, defined-risk option positions in the engine, and 3D gamma surfaces. Option prices are modelled, not quotes; read the pricing-sensitivity line in `bt validate` output.
+Not built yet: written explanations and the Claude Code skill, the dashboard.
 
 ## Setup
 
@@ -32,6 +33,10 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 
 ```bash
 .venv/bin/bt validate strategies/examples/sma_cross.py --start 2006-01-01
+```
+
+```bash
+.venv/bin/bt calibrate-options data/calibration/SPY-2026-11-13.json
 ```
 
 Other commands: `bt data`, `bt check`, `bt optimize`, `bt ingest-ibkr`, `bt compare-ibkr`, `bt import-csv`. Run `bt <command> --help` for options.

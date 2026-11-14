@@ -170,7 +170,9 @@ def option_pricing_sensitivity(runner: Runner, params: dict, base) -> dict:
         rows.append({"case": name, "total_return": float(res.equity.iloc[-1] / start - 1),
                      "sharpe": sharpe(daily_returns(res))})
     returns = [r["total_return"] for r in rows]
-    return {"cases": rows, "lowest": min(returns), "highest": max(returns),
+    lots = min(start / (float(runner.data[s]["close"].loc[base.equity.index[0]:].iloc[0]) * 100)
+               for s in runner.strategy_cls.options_on)
+    return {"lots_affordable_at_start": lots, "cases": rows, "lowest": min(returns), "highest": max(returns),
             "sign_changes": min(returns) < 0 < max(returns),
             "note": "Modelled prices, not quotes. For SPY, a level fitted to one day of IBKR quotes "
                     "and a level fitted to the Cboe PutWrite index differ by about 16%."}
@@ -317,6 +319,11 @@ def flags(v: dict) -> list[dict]:
                        f"Option prices are modelled, not real quotes. Moving the volatility assumptions "
                        f"changes the total return from {op['lowest']:.0%} to {op['highest']:.0%}"
                        + ("; the result changes sign." if op["sign_changes"] else ".")))
+    if op and op["lots_affordable_at_start"] < 20:
+        f.append(_flag("medium", "option pricing",
+                       f"The account covers only about {op['lots_affordable_at_start']:.0f} lots of 100 shares at the start, "
+                       "so position sizes move in large steps and results swing with small timing changes. "
+                       "Test with more capital to see the strategy itself."))
     for name, why in v.get("skipped", {}).items():
         f.append(_flag("info", name, f"Not run: {why}."))
     order = {"high": 0, "medium": 1, "info": 2}
