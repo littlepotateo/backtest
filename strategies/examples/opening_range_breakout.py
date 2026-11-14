@@ -12,6 +12,7 @@ class OpeningRangeBreakout(Strategy):
     universe = ["SPY"]
     interval = "5m"
     params = {"range_bars": 6, "allow_short": True}
+    param_grid = {"range_bars": [3, 6, 12]}
 
     def init(self, ctx):
         self.day = None

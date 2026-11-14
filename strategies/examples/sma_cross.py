@@ -7,6 +7,11 @@ class SmaCross(Strategy):
     universe = ["SPY"]
     interval = "1d"
     params = {"fast": 50, "slow": 200}
+    param_grid = {"fast": [20, 50, 100], "slow": [100, 150, 200, 250]}
+
+    @classmethod
+    def valid_params(cls, params):
+        return params["fast"] < params["slow"]
 
     def on_bar(self, ctx):
         symbol = self.universe[0]

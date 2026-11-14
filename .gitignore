@@ -5,3 +5,4 @@ data/cache/
 runs/
 .pytest_cache/
 *.egg-info/
+strategies/examples/*.trials.jsonl

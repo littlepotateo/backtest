@@ -1,13 +1,19 @@
 # Trading cost assumptions used by the engine.
 #
-# UNCONFIRMED: these stock rates are recalled from IBKR's "Fixed" US pricing and were
-# NOT read from IBKR's pricing page (it refused automated access on 2026-11-14).
-# Check them against https://www.interactivebrokers.com/en/pricing/commissions-home.php
-# or your own account's commission reports, then set confirmed = true.
-confirmed = false
+# Stock commissions: IBKR Lite, as stated by the account holder on 2026-11-14
+# (US-listed stocks and ETFs commission-free). Not read from IBKR's pricing page,
+# which refuses automated access.
+confirmed = true
 
 [stock]
-per_share = 0.005        # USD per share
-min_per_order = 1.00     # USD
-max_pct_of_trade = 0.01  # commission capped at this fraction of trade value
-slippage_bps = 1.0       # paid on every fill, in basis points of price (spread + slippage)
+per_share = 0.0          # USD per share
+min_per_order = 0.0      # USD
+max_pct_of_trade = 0.0
+slippage_bps = 1.0       # ASSUMPTION: paid on every fill, in basis points of price
+                         # (half the bid/ask spread plus slippage). The main cost under Lite.
+
+# Interest (IBKR Lite): idle cash earns the benchmark rate minus 1%; margin loans cost
+# the benchmark plus 2.5%. Set in RunConfig (cash_spread, margin_spread). The benchmark
+# is the 13-week Treasury bill yield (^IRX) when cached.
+#
+# Options commissions (IBKR Fixed pricing) are NOT set yet: needed at stage 5.

@@ -19,7 +19,7 @@ _INTERVALS = {"1m": "1m", "2m": "2m", "5m": "5m", "15m": "15m", "30m": "30m",
               "1h": "60m", "1d": "1d", "1w": "1wk"}
 
 
-def parse_yahoo_chart(payload: dict) -> pd.DataFrame:
+def parse_yahoo_chart(payload: dict, allow_nonpositive: bool = False) -> pd.DataFrame:
     chart = payload.get("chart", {})
     if chart.get("error"):
         raise ValueError(f"Yahoo error: {chart['error']}")
@@ -37,11 +37,11 @@ def parse_yahoo_chart(payload: dict) -> pd.DataFrame:
     df["volume"] = df["volume"].fillna(0)
     if "adj_factor" in df:
         df["adj_factor"] = df["adj_factor"].fillna(1.0)
-    return normalise_bars(df)
+    return normalise_bars(df, allow_nonpositive)
 
 
 def fetch_yahoo(symbol: str, interval: str = "1d", start=None, end=None,
-                timeout: float = 30) -> pd.DataFrame:
+                timeout: float = 30, allow_nonpositive: bool = False) -> pd.DataFrame:
     if interval not in _INTERVALS:
         raise ValueError(f"Yahoo does not offer {interval} bars")
     start_ts = int(to_utc(start or "1990-01-01").timestamp())
@@ -52,4 +52,4 @@ def fetch_yahoo(symbol: str, interval: str = "1d", start=None, end=None,
     req = urllib.request.Request(_URL.format(symbol=urllib.parse.quote(symbol), query=query),
                                  headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return parse_yahoo_chart(json.load(resp))
+        return parse_yahoo_chart(json.load(resp), allow_nonpositive)
