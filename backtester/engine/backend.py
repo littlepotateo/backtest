@@ -46,7 +46,8 @@ def load_rates(cache: Cache) -> pd.Series | None:
 def build_option_models(symbols: list[str], data: dict[str, pd.DataFrame], rates: pd.Series | None,
                         cache: Cache | None = None, levels: dict[str, pd.Series] | None = None,
                         scale: tuple[float, float] = (1.0, 1.0),
-                        surface_config: str = "config/vol_surface.toml") -> dict:
+                        surface_config: str = "config/vol_surface.toml",
+                        params: dict | None = None) -> dict:
     """An OptionModel per underlying. The volatility level comes from `levels` if given,
     else the cached volatility index for that symbol, else the underlying's own realised
     volatility. `scale` multiplies the level and the skew (pricing-sensitivity test)."""
@@ -57,7 +58,8 @@ def build_option_models(symbols: list[str], data: dict[str, pd.DataFrame], rates
     models = {}
     for s in symbols:
         df = data[s]
-        params = SurfaceParams.load(s, surface_config).scaled(*scale)
+        base = params[s] if params and s in params else SurfaceParams.load(s, surface_config)
+        p = base.scaled(*scale)
         index = VOL_INDEX.get(s.upper())
         if levels and s in levels:
             level, source = levels[s], "supplied"
@@ -69,7 +71,7 @@ def build_option_models(symbols: list[str], data: dict[str, pd.DataFrame], rates
         af = df["adj_factor"] if "adj_factor" in df else None
         years = max((df.index[-1] - df.index[0]).days / 365.25, 1e-9)
         q = float(np.log(af.iloc[-1] / af.iloc[0]) / years) if af is not None and af.iloc[0] > 0 else 0.0
-        models[s] = OptionModel(s, VolSurface(params, level, source), rates, max(q, 0.0))
+        models[s] = OptionModel(s, VolSurface(p, level, source), rates, max(q, 0.0))
     return models
 
 
@@ -80,7 +82,8 @@ class Runner:
     def __init__(self, strategy_cls: type[Strategy], config: RunConfig, *,
                  cache: Cache | None = None, data: dict[str, pd.DataFrame] | None = None,
                  rates: pd.Series | None = None, backend: str = "native",
-                 option_levels: dict[str, pd.Series] | None = None):
+                 option_levels: dict[str, pd.Series] | None = None,
+                 option_params: dict | None = None):
         self.strategy_cls, self.config, self.backend = strategy_cls, config, backend
         self.data_meta = None
         if data is None:
@@ -88,7 +91,7 @@ class Runner:
             data, self.data_meta = load_data(strategy_cls(), cache, config)
             rates = load_rates(cache) if rates is None else rates
         self.data, self.rates, self.cache = data, rates, cache
-        self.option_levels = option_levels
+        self.option_levels, self.option_params = option_levels, option_params
         if strategy_cls.options_on and config.use_adjusted:
             # option strikes and prices live on real (unadjusted) prices
             import dataclasses
@@ -121,7 +124,7 @@ class Runner:
         self.runs += 1
         use = data or self.data
         models = build_option_models(cls.options_on, use, self.rates, self.cache, self.option_levels,
-                                     option_scale) if cls.options_on else None
+                                     option_scale, params=self.option_params) if cls.options_on else None
         return get_backend(self.backend).run(strategy, use, config, self.data_meta, self.rates, models)
 
 
