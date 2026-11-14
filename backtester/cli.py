@@ -9,8 +9,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pandas as pd
+
 from backtester.analysis.metrics import compute_metrics
-from backtester.data.cache import Cache, from_csv
+from backtester.data.cache import Cache, from_csv, to_utc
 from backtester.data.ibkr import parse_ibkr_history
 from backtester.engine.backend import Runner
 from backtester.engine.costs import CostModel
@@ -116,6 +118,46 @@ def cmd_fetch_rates(args):
                                    allow_nonpositive=True)
     print(f"13-week Treasury bill yield: {len(saved)} days cached "
           f"({saved.index[0].date()} to {saved.index[-1].date()}), latest {saved['close'].iloc[-1]:.2f}%")
+
+
+def cmd_calibrate_options(args):
+    import numpy as np
+
+    from backtester.engine.backend import load_rates
+    from backtester.options.calibrate import calibrate, save_params
+    from backtester.options.surface import VOL_INDEX, realised_vol
+    snap = json.loads(Path(args.file).read_text())
+    cache, sym = Cache(args.cache), snap["symbol"].upper()
+    day = to_utc(snap["date"]) + pd.Timedelta(days=1)
+    index = VOL_INDEX.get(sym)
+    if index and cache.has(index, "1d"):
+        series, src = cache.load(index, "1d")["close"] / 100, index
+    else:
+        series, src = realised_vol(cache.load(sym, "1d")["close"]) * 1.2, "21-day realised volatility x 1.2"
+    level = float(series[series.index < day].dropna().iloc[-1])
+    rates = load_rates(cache)
+    rate = float(rates[rates.index <= snap["date"]].iloc[-1]) if rates is not None else 0.0
+    bars = cache.load(sym, "1d")
+    years = (bars.index[-1] - bars.index[0]).days / 365.25
+    q = max(float(np.log(bars["adj_factor"].iloc[-1] / bars["adj_factor"].iloc[0]) / years), 0.0)
+    rep = calibrate(snap, level, rate, q)
+    rep["level_source"] = src
+    print(f"{sym} on {rep['date']}: spot {rep['spot']}, level {level:.4f} from {src}, "
+          f"rate {rate:.2%}, dividend yield {q:.2%}")
+    print(f"  quotes: {rep['quote_source']}")
+    for row in rep["table"]:
+        print(f"  {row['expiry']} {row['right']} {row['strike']:>6g}  market {row['market_mid']:>7.2f}  "
+              f"model {row['model_price']:>7.2f}  ({row['price_error_pct']:+.1f}%)  "
+              f"vol {row['market_iv']:.3f} vs {row['model_iv']:.3f}")
+    p = rep["params"]
+    print(f"  fitted: ratio {p['ratio']:.3f}, skew {p['skew']:.3f}, curvature {p['curvature']:.3f}, "
+          f"term {p['term']:.3f}, half-spread {p['half_spread']:.2%}")
+    print(f"  price error: mean {rep['mean_abs_price_error_pct']:.1f}%, worst {rep['max_abs_price_error_pct']:.1f}%")
+    if not args.dry_run:
+        save_params(sym, rep, args.config)
+        out = Path(args.file).with_suffix(".report.json")
+        out.write_text(json.dumps(rep, indent=2))
+        print(f"  saved to {args.config} and {out}")
 
 
 def cmd_import_csv(args):
@@ -342,6 +384,12 @@ def main(argv=None):
     s = sub.add_parser("fetch-rates", help="download the Treasury bill yield used for cash and margin interest")
     s.add_argument("--start", default="1990-01-01")
     s.set_defaults(func=cmd_fetch_rates)
+
+    s = sub.add_parser("calibrate-options", help="fit the volatility surface to a snapshot of option quotes")
+    s.add_argument("file")
+    s.add_argument("--config", default="config/vol_surface.toml")
+    s.add_argument("--dry-run", action="store_true")
+    s.set_defaults(func=cmd_calibrate_options)
 
     s = sub.add_parser("import-csv", help="load bars from a CSV file")
     s.add_argument("symbol")

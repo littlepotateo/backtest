@@ -1,0 +1,96 @@
+{
+  "symbol": "SPY",
+  "date": "2026-11-13",
+  "spot": 754.37,
+  "quote_source": "IBKR connector, frozen delayed bid/ask from the 2026-11-13 close",
+  "level": 0.19299999237060547,
+  "rate": 0.04122000217437744,
+  "dividend_yield": 0.01810999039193993,
+  "quotes_used": 7,
+  "params": {
+    "ratio": 0.788783690791196,
+    "skew": -0.28543952272303325,
+    "curvature": 0.012163835138117132,
+    "term": 0.045475136798777474,
+    "half_spread": 0.006224066390041545,
+    "min_half_spread": 0.01,
+    "calibrated": true
+  },
+  "mean_abs_price_error_pct": 3.708451269087154,
+  "max_abs_price_error_pct": 7.29197999099358,
+  "iv_rmse": 0.005403461035188911,
+  "table": [
+    {
+      "expiry": "2026-12-18",
+      "strike": 680,
+      "right": "P",
+      "market_mid": 2.48,
+      "model_price": 2.5369612164071498,
+      "price_error_pct": 2.2968232422237778,
+      "market_iv": 0.25877660399199726,
+      "model_iv": 0.26031857124593033
+    },
+    {
+      "expiry": "2026-12-18",
+      "strike": 717,
+      "right": "P",
+      "market_mid": 5.475,
+      "model_price": 5.223654604730427,
+      "price_error_pct": -4.590783475243332,
+      "market_iv": 0.2084231647547669,
+      "model_iv": 0.20450806868605723
+    },
+    {
+      "expiry": "2026-12-18",
+      "strike": 754,
+      "right": "P",
+      "market_mid": 14.155000000000001,
+      "model_price": 13.478922659593707,
+      "price_error_pct": -4.776244015586684,
+      "market_iv": 0.16309737114946254,
+      "model_iv": 0.15580713758905498
+    },
+    {
+      "expiry": "2026-12-18",
+      "strike": 754,
+      "right": "C",
+      "market_mid": 14.46,
+      "model_price": 15.514420306697673,
+      "price_error_pct": 7.29197999099358,
+      "market_iv": 0.1444353649327602,
+      "model_iv": 0.15580713758905498
+    },
+    {
+      "expiry": "2026-12-18",
+      "strike": 792,
+      "right": "C",
+      "market_mid": 1.1949999999999998,
+      "model_price": 1.1281048850247686,
+      "price_error_pct": -5.597917571149058,
+      "market_iv": 0.11395811201934695,
+      "model_iv": 0.1122643695388405
+    },
+    {
+      "expiry": "2027-03-19",
+      "strike": 680,
+      "right": "P",
+      "market_mid": 9.84,
+      "model_price": 9.745752858054743,
+      "price_error_pct": -0.9577961579802508,
+      "market_iv": 0.2203355929314482,
+      "model_iv": 0.21950937210249724
+    },
+    {
+      "expiry": "2027-03-19",
+      "strike": 755,
+      "right": "C",
+      "market_mid": 31.655,
+      "model_price": 31.796692347953694,
+      "price_error_pct": 0.4476144304333962,
+      "market_iv": 0.1651704160462122,
+      "model_iv": 0.16598280432283558
+    }
+  ],
+  "caveat": "Fitted to one day's quotes; the same shape is applied to all of history.",
+  "level_source": "^VIX"
+}
