@@ -35,8 +35,9 @@ def interval_from_seconds(seconds: int) -> str:
     raise ValueError(f"unsupported bar size: {seconds} seconds")
 
 
-def normalise_bars(df: pd.DataFrame) -> pd.DataFrame:
-    """Return bars in the cache's canonical shape, validated."""
+def normalise_bars(df: pd.DataFrame, allow_nonpositive: bool = False) -> pd.DataFrame:
+    """Return bars in the cache's canonical shape, validated. `allow_nonpositive` is
+    for series that are not prices (interest rates can be zero or negative)."""
     df = df.copy()
     df.columns = [str(c).lower() for c in df.columns]
     if "adj_factor" not in df.columns:
@@ -51,7 +52,7 @@ def normalise_bars(df: pd.DataFrame) -> pd.DataFrame:
     df = df[COLUMNS].astype(float)
     df = df[~df.index.duplicated(keep="last")].sort_index()
     df = df.dropna(subset=["open", "high", "low", "close"])
-    if (df[["open", "high", "low", "close"]] <= 0).any().any():
+    if not allow_nonpositive and (df[["open", "high", "low", "close"]] <= 0).any().any():
         raise ValueError("bars contain zero or negative prices")
     return df
 
@@ -69,15 +70,16 @@ class Cache:
         return self._path(symbol, interval).exists()
 
     def save(self, symbol: str, interval: str, bars: pd.DataFrame, *, source: str,
-             adjusted: str = "unknown", merge: bool = True) -> pd.DataFrame:
+             adjusted: str = "unknown", merge: bool = True,
+             allow_nonpositive: bool = False) -> pd.DataFrame:
         """Store bars. With merge=True, new bars are stitched onto what is cached
         (new values win on overlapping timestamps), but only for the same source."""
-        bars = normalise_bars(bars)
+        bars = normalise_bars(bars, allow_nonpositive)
         path = self._path(symbol, interval)
         if merge and path.exists():
             old_meta = self.meta(symbol, interval)
             if old_meta.get("source") == source:
-                bars = normalise_bars(pd.concat([self.load(symbol, interval), bars]))
+                bars = normalise_bars(pd.concat([self.load(symbol, interval), bars]), allow_nonpositive)
         path.parent.mkdir(parents=True, exist_ok=True)
         bars.to_parquet(path)
         meta = {

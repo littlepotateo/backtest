@@ -39,6 +39,10 @@ class _Sim:
         self.entry_cost_per_share: dict[str, float] = {}   # commission + slippage
         self.entry_fee_per_share: dict[str, float] = {}    # commission only
         self.pending: dict[str, float] = {}
+        self.waited: dict[str, int] = {}
+        self.interest_earned = 0.0
+        self.interest_paid = 0.0
+        self._accrued_to = None
         self.orders: list[tuple] = []
         self.fills: list[tuple] = []
         self.trades: list[tuple] = []
@@ -65,6 +69,33 @@ class _Sim:
     def equity(self) -> float:
         return self.cash + sum(q * self.last_close[s] for s, q in self.positions.items() if q)
 
+    def accrue_interest(self, rates) -> None:
+        """Once per calendar day: interest on idle cash, or on borrowed cash."""
+        day = self.now.tz_convert(self.config.timezone).normalize().tz_localize(None)
+        if self._accrued_to is None:
+            self._accrued_to = day
+            return
+        days = (day - self._accrued_to).days
+        if days <= 0:
+            return
+        self._accrued_to = day
+        if rates is None:
+            return
+        i = rates.index.searchsorted(day, side="right") - 1
+        if i < 0:
+            return
+        bench = float(rates.iloc[i])
+        cfg = self.config
+        if self.cash < 0:
+            cost = -self.cash * (bench + cfg.margin_spread) * days / 365
+            self.cash -= cost
+            self.interest_paid += cost
+        elif cfg.cash_interest:
+            base = max(min(self.cash, self.equity()), 0.0)   # not on short-sale proceeds
+            gain = base * max(bench - cfg.cash_spread, 0.0) * days / 365
+            self.cash += gain
+            self.interest_earned += gain
+
     # --- orders ------------------------------------------------------------------
     def place(self, symbol: str, qty: float, kind: str, replace: bool) -> None:
         if symbol not in self.data:
@@ -76,13 +107,19 @@ class _Sim:
         qty = qty if replace else self.pending.get(symbol, 0.0) + qty
         if qty == 0:
             self.pending.pop(symbol, None)
+            self.waited.pop(symbol, None)
             return
         self.pending[symbol] = qty
+        self.waited.setdefault(symbol, 0)      # re-stating an order does not restart its wait
         self.orders.append((self.now, symbol, qty, kind))
 
     def fill_pending(self, price_field: str) -> None:
         for symbol in [s for s in self.pending if self.bar_now.get(s)]:
+            if self.waited[symbol] < self.config.fill_delay_bars:
+                self.waited[symbol] += 1
+                continue
             qty = self.pending.pop(symbol)
+            self.waited.pop(symbol, None)
             raw = float(self.arrays[symbol][price_field][self.cursor[symbol]])
             self._fill(symbol, qty, raw)
 
@@ -156,7 +193,8 @@ class NativeBackend:
     name = "native"
 
     def run(self, strategy: Strategy, data: dict[str, pd.DataFrame], config: RunConfig,
-            data_meta: dict | None = None) -> RunResult:
+            data_meta: dict | None = None, rates: pd.Series | None = None) -> RunResult:
+        """`rates` is an optional annual benchmark interest rate (decimal) by date."""
         if config.fill not in ("next_open", "close"):
             raise ValueError("fill must be 'next_open' or 'close'")
         missing = [s for s in strategy.universe if s not in data]
@@ -192,6 +230,7 @@ class NativeBackend:
             if not started:
                 strategy.init(ctx)
                 started = True
+            sim.accrue_interest(rates)
             if config.fill == "next_open":
                 sim.fill_pending("open")
             for s in data:
@@ -220,7 +259,8 @@ class NativeBackend:
             "open_positions": {s: q for s, q in sim.positions.items() if q},
             "unfilled_orders": dict(sim.pending),
             "warnings": dict(sim.warnings),
-            "notes": self._notes(config),
+            "interest": {"earned": sim.interest_earned, "paid": sim.interest_paid},
+            "notes": self._notes(config, rates),
         }
         return RunResult(
             equity=pd.Series(equity, index=idx, name="equity"),
@@ -239,12 +279,16 @@ class NativeBackend:
         return df
 
     @staticmethod
-    def _notes(config: RunConfig) -> list[str]:
+    def _notes(config: RunConfig, rates=None) -> list[str]:
         notes = []
         if config.fill == "close":
             notes.append("Orders fill at the close of the bar that generated them. "
                          "This is optimistic; next-bar-open fills are the default.")
         if not config.costs.confirmed:
             notes.append("Commission rates are unconfirmed placeholders (config/costs.toml).")
-        notes.append("Short borrow fees and margin interest are not modelled.")
+        if config.fill_delay_bars:
+            notes.append(f"Fills are delayed by {config.fill_delay_bars} extra bar(s).")
+        if rates is None:
+            notes.append("No interest-rate data: cash interest and margin interest are zero.")
+        notes.append("Short borrow fees are not modelled.")
         return notes

@@ -33,6 +33,10 @@ class RunConfig:
     fractional_shares: bool = False
     use_adjusted: bool = True         # scale prices by adj_factor (total-return approximation)
     timezone: str = "America/New_York"
+    fill_delay_bars: int = 0          # extra bars an order waits before filling (stress test)
+    cash_interest: bool = True        # idle cash earns benchmark - cash_spread (IBKR Lite)
+    cash_spread: float = 0.01
+    margin_spread: float = 0.025      # borrowed cash pays benchmark + margin_spread
 
     def to_dict(self) -> dict:
         return asdict(self)

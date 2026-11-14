@@ -23,7 +23,8 @@ class CostModel:
             return 0.0
         value = shares * price
         fee = max(shares * self.per_share, self.min_per_order)
-        fee = min(fee, value * self.max_pct_of_trade)
+        if self.max_pct_of_trade > 0:
+            fee = min(fee, value * self.max_pct_of_trade)
         return fee * self.multiplier
 
     def fill_price(self, price: float, side: int) -> float:

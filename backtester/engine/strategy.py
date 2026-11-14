@@ -23,7 +23,22 @@ class Strategy:
     universe: list[str] = []
     interval: str = "1d"
     params: dict = {}          # default parameters; override per run
+    param_grid: dict = {}      # values to try per parameter, e.g. {"fast": [20, 50]}
     warmup_bars: int = 0       # bars of history wanted before the first tradable bar
+
+    @classmethod
+    def valid_params(cls, params: dict) -> bool:
+        """Override to exclude meaningless combinations (e.g. fast >= slow)."""
+        return True
+
+    @classmethod
+    def grid(cls) -> list[dict]:
+        """Every valid parameter combination from `param_grid` (defaults for the rest)."""
+        import itertools
+        keys = list(cls.param_grid)
+        combos = [dict(zip(keys, v)) for v in itertools.product(*(cls.param_grid[k] for k in keys))]
+        out = [{**cls.params, **c} for c in combos] or [dict(cls.params)]
+        return [p for p in out if cls.valid_params(p)]
 
     def __init__(self, **params):
         unknown = set(params) - set(type(self).params)
