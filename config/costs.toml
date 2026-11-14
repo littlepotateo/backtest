@@ -1,0 +1,13 @@
+# Trading cost assumptions used by the engine.
+#
+# UNCONFIRMED: these stock rates are recalled from IBKR's "Fixed" US pricing and were
+# NOT read from IBKR's pricing page (it refused automated access on 2026-11-14).
+# Check them against https://www.interactivebrokers.com/en/pricing/commissions-home.php
+# or your own account's commission reports, then set confirmed = true.
+confirmed = false
+
+[stock]
+per_share = 0.005        # USD per share
+min_per_order = 1.00     # USD
+max_pct_of_trade = 0.01  # commission capped at this fraction of trade value
+slippage_bps = 1.0       # paid on every fill, in basis points of price (spread + slippage)
