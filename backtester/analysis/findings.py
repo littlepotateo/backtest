@@ -127,7 +127,10 @@ def validate(runner: Runner, params: dict | None = None, tests: list[str] | None
                 out["skipped"]["pbo"] = f"needs at least 10 configurations (have {m.shape[1]})"
             o["spa"] = overfitting.spa_test(m, seed=seed)
         o["permutation"] = overfitting.permutation_test(base, runner.data, seed=seed)
-        o["random_entry"] = overfitting.random_entry_test(base, runner.data, seed=seed)
+        if (out["metrics"].get("time_in_market") or 0) > 0.95:
+            o["random_entry"] = {"skipped": "the strategy is almost always invested, so entry timing is not what it relies on"}
+        else:
+            o["random_entry"] = overfitting.random_entry_test(base, runner.data, seed=seed)
         o["not_run"] = "Price-path permutation (Masters) is not implemented: its recipe is unverified."
         out["overfitting"] = o
 

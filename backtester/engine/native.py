@@ -39,6 +39,7 @@ class _Sim:
         self.entry_cost_per_share: dict[str, float] = {}   # commission + slippage
         self.entry_fee_per_share: dict[str, float] = {}    # commission only
         self.pending: dict[str, float] = {}
+        self.records: list[dict] = []
         self.waited: dict[str, int] = {}
         self.interest_earned = 0.0
         self.interest_paid = 0.0
@@ -114,7 +115,11 @@ class _Sim:
         self.orders.append((self.now, symbol, qty, kind))
 
     def fill_pending(self, price_field: str) -> None:
-        for symbol in [s for s in self.pending if self.bar_now.get(s)]:
+        ready = [s for s in self.pending if self.bar_now.get(s)]
+        # orders that reduce a position go first, so sales fund purchases
+        ready.sort(key=lambda s: abs(self.positions.get(s, 0.0) + self.pending[s])
+                   >= abs(self.positions.get(s, 0.0)))
+        for symbol in ready:
             if self.waited[symbol] < self.config.fill_delay_bars:
                 self.waited[symbol] += 1
                 continue
@@ -259,6 +264,7 @@ class NativeBackend:
             "open_positions": {s: q for s, q in sim.positions.items() if q},
             "unfilled_orders": dict(sim.pending),
             "warnings": dict(sim.warnings),
+            "records": sim.records,
             "interest": {"earned": sim.interest_earned, "paid": sim.interest_paid},
             "notes": self._notes(config, rates),
         }
