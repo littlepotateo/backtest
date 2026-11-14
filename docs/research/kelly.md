@@ -22,7 +22,7 @@ over-betting? (Kelly 1956; Thorp 1969, 2006.)
   the growth for half the volatility.
 - Useful drawdown result under the continuous model: at fraction `c` of Kelly, the
   probability of ever falling to a fraction `x` of current wealth is `x^(2/c − 1)`
-  (full Kelly: 50% chance of a 50% drawdown). **[verify]** against Thorp (2006).
+  (full Kelly: 50% chance of a 50% drawdown). Derived directly: log-wealth has drift `fμ − f²σ²/2` and volatility `fσ`, and a drifting Brownian motion reaches a level `ln x` below its start with probability `x^(2·drift/vol²)`.
 
 ## Pitfalls found
 
