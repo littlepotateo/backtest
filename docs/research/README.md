@@ -13,6 +13,7 @@ The build follows the "Decision" section of each write-up.
 | [options-pricing.md](options-pricing.md) | Black-Scholes, volatility surface, synthetic chains, gamma surfaces |
 | [portfolio-allocation.md](portfolio-allocation.md) | Black-Litterman and the other weighting methods |
 | [lean-integration.md](lean-integration.md) | What a QuantConnect LEAN backend would need |
+| [literature-sweep.md](literature-sweep.md) | Consensus literature sweep: findings and what each changes |
 
 ## Status and how far to trust these
 
@@ -28,9 +29,8 @@ The build follows the "Decision" section of each write-up.
   silently producing numbers.
 - Items marked **[verify]** are recalled, not confirmed this pass, and must be checked
   against the primary source before the code that depends on them is merged.
-- **Pending: Consensus pass.** Once the Consensus connector is enabled, each write-up
-  gets a literature sweep (recent critiques, replications, better estimators) and the
-  [verify] items are closed against full text.
+- **Consensus pass, 2026-11-14:** a first sweep is in `literature-sweep.md` (abstracts
+  only). Three topics are not yet searched and one [verify] item is still open; see that file.
 
 Grouping note: the design called for one file per method; related methods are grouped
 where they share formulas and pitfalls.
