@@ -11,6 +11,7 @@ a plain-language explanation. Python 3.11+, `.venv/bin/python`, command `bt`.
 - `backtester/options/` pricing, volatility surface, chain, calibration, gamma surfaces
 - `backtester/portfolio/` weighting methods and Black-Litterman
 - `backtester/explain/` explanation text; `backtester/research/` paper library
+- `backtester/web/` local dashboard (FastAPI, server-rendered pages, Plotly from the installed package, no JS build); `bt serve`
 - `strategies/examples/` worked strategies; `config/` costs and surface parameters
 - `docs/research/` method write-ups (formulas, pitfalls, known-answer tests) and the literature sweep
 - `.claude/skills/backtest/SKILL.md` the workflow for turning a description or paper into a result
@@ -25,4 +26,6 @@ a plain-language explanation. Python 3.11+, `.venv/bin/python`, command `bt`.
   (accepted by the account holder, not read from IBKR); slippage 1 basis point per fill is an assumption.
 - Work on a branch per stage, open a draft pull request, report limits as plainly as results.
 - The IBKR connector is callable only by Claude, not by Python; data reaches the cache through files.
+- Dashboard charts: strategy is always series 1 (blue), benchmark or second run series 2 (orange); the palette was validated for
+  light and dark; look at every new chart in a browser (Playwright is installed) before calling it done.
 - Results are research, not investment advice.

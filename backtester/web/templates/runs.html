@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Runs{% endblock %}
+{% block main %}
+<h1>Runs</h1>
+<p class="sub">Every backtest saved under <code>runs/</code>, newest first.</p>
+{% if not runs %}
+<div class="card">No runs yet. Run <code>bt run strategies/examples/sma_cross.py</code> or <code>bt validate ...</code>, then reload.</div>
+{% else %}
+<div class="row"><label for="run-filter" class="f" style="margin:0">Filter</label><input id="run-filter" type="text" placeholder="strategy, symbol, source…"></div>
+<div class="card scroll">
+<table id="runs-table">
+  <thead><tr><th>Run</th><th>Strategy</th><th>Universe</th><th>Period</th><th class="n">Total return</th><th class="n">Annual</th>
+  <th class="n">Sharpe</th><th class="n">Max drawdown</th><th class="n">Trades</th><th>Evidence</th><th>Data</th></tr></thead>
+  <tbody>
+  {% for r in runs %}
+  <tr>
+    <td><a href="/run/{{ r.id }}">{{ r.id[:15] }}</a></td>
+    <td>{{ r.strategy }}{% if r.has_options %} <span class="chip">options</span>{% endif %}</td>
+    <td>{{ r.universe }}</td><td>{{ r.start }} to {{ r.end }}</td>
+    <td class="n">{{ r.metrics.total_return|pct }}</td><td class="n">{{ r.metrics.cagr|pct }}</td>
+    <td class="n">{{ r.metrics.sharpe|num }}</td><td class="n">{{ r.metrics.max_drawdown|pct }}</td><td class="n">{{ r.metrics.trades }}</td>
+    <td>{% if r.validated %}{{ r.trust }}{% if r.high %} · {{ r.high }} serious{% endif %}{% if r.risk_warning %} · risk warning{% endif %}{% else %}<span class="legend-note">not validated</span>{% endif %}</td>
+    <td>{{ r.sources|join(', ') }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

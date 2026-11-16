@@ -72,7 +72,10 @@ class VolSurface:
             d = d.tz_convert("America/New_York").normalize().tz_localize(None)
         i = self.level.index.searchsorted(d.normalize(), side="right") - 1
         if i < 0:
-            raise ValueError(f"no volatility level available on or before {d.date()}")
+            raise ValueError(
+                f"no volatility level available on or before {d.date()}: the volatility index or the "
+                f"realised-volatility history starts later. Start the backtest later (about a month after the first "
+                f"price) or cache a longer history.")
         return float(self.level.iloc[i])
 
     def atm(self, date, t):

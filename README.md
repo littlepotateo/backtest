@@ -10,7 +10,8 @@ Method research: `docs/research/`
 Built: data cache, stock/ETF engine (daily and intraday), metrics, the validation tests (walk-forward, Monte Carlo, Kelly, overfitting statistics, regimes, cost stress, look-ahead check), and portfolio allocation (equal weight, inverse volatility, risk parity, minimum variance, mean-variance, Black-Litterman).
 Options (stage 5): Black-Scholes pricing on a calibrated volatility surface, a synthetic chain, defined-risk option positions in the engine, and 3D gamma surfaces. Option prices are modelled, not quotes; read the pricing-sensitivity line in `bt validate` output.
 Explanations and papers (stage 6): `bt validate` writes `explanation.md`; `bt explain` regenerates it; `bt paper` keeps a library of research papers with their claims and linked runs; `.claude/skills/backtest/SKILL.md` is the workflow for turning a description or paper into a result.
-Not built yet: the dashboard.
+Dashboard (stage 7): `bt serve` opens a local web app with the run list, run pages (charts, monthly returns, validation, explanation, 3D option surfaces), comparison of two runs, the research library, and re-runs with changed settings.
+All seven stages of the original plan are built.
 
 ## Setup
 
@@ -39,6 +40,12 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 ```bash
 .venv/bin/bt calibrate-options data/calibration/SPY-2026-11-13.json
 ```
+
+```bash
+.venv/bin/bt serve
+```
+
+Then open http://127.0.0.1:8765 (use `--port` to change it). The server listens on this computer only and refuses form posts from other websites.
 
 Other commands: `bt data`, `bt check`, `bt optimize`, `bt ingest-ibkr`, `bt compare-ibkr`, `bt import-csv`. Run `bt <command> --help` for options.
 

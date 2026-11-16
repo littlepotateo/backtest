@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Compare{% endblock %}
+{% block main %}
+<h1>Compare two runs</h1>
+<form method="get" class="row">
+  <label for="a">A</label><select id="a" name="a"><option value="">choose…</option>{% for r in listing %}<option value="{{ r.id }}" {{ 'selected' if r.id == a }}>{{ r.id[:15] }} · {{ r.strategy }}</option>{% endfor %}</select>
+  <label for="b">B</label><select id="b" name="b"><option value="">choose…</option>{% for r in listing %}<option value="{{ r.id }}" {{ 'selected' if r.id == b }}>{{ r.id[:15] }} · {{ r.strategy }}</option>{% endfor %}</select>
+  <button class="primary" type="submit">Compare</button>
+</form>
+{% if charts %}
+<div class="card"><label><input type="checkbox" id="log-scale" data-redraw> Log scale</label>
+  <div id="compare" class="chart" role="img" aria-label="Growth of 1 for the two runs"></div>
+  <p class="legend-note">Both runs start at 1 on their own first day; periods may differ.</p></div>
+<div class="card scroll"><table>
+  <thead><tr><th></th><th>A: {{ ra.meta.strategy }}</th><th>B: {{ rb.meta.strategy }}</th></tr></thead><tbody>
+  {% for label, key, fmt in [('Period','',''),('Total return','total_return','p'),('Annual return','cagr','p'),('Volatility','volatility','p'),('Sharpe','sharpe','n'),('Max drawdown','max_drawdown','p'),('Trades','trades','i')] %}
+  <tr><td>{{ label }}</td>
+   {% for x in [ra, rb] %}<td>{% if key == '' %}{{ x.metrics.start[:10] }} to {{ x.metrics.end[:10] }}{% elif fmt == 'p' %}{{ x.metrics[key]|pct }}{% elif fmt == 'n' %}{{ x.metrics[key]|num }}{% else %}{{ x.metrics[key] }}{% endif %}</td>{% endfor %}</tr>{% endfor %}
+  <tr><td>Parameters</td><td><code>{{ ra.meta.params }}</code></td><td><code>{{ rb.meta.params }}</code></td></tr>
+  <tr><td>Evidence</td><td>{{ ra.trust[0] if ra.trust else 'not validated' }}</td><td>{{ rb.trust[0] if rb.trust else 'not validated' }}</td></tr>
+  <tr><td>Serious evidence concerns</td><td>{{ ra.evidence_flags|selectattr('severity','equalto','high')|list|length }}</td><td>{{ rb.evidence_flags|selectattr('severity','equalto','high')|list|length }}</td></tr>
+  </tbody></table></div>
+<script id="chart-data" type="application/json">{{ charts|tojson }}</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}{{ r.meta.strategy }} · {{ r.id[:15] }}{% endblock %}
+{% block main %}
+{% set m = r.metrics %}
+<h1>{{ r.meta.strategy }}</h1>
+<p class="sub">{{ r.meta.universe|join(', ') }} · {{ r.meta.interval }} bars · {{ m.start[:10] }} to {{ m.end[:10] }} · {{ r.meta.backend }} backend ·
+ data: {% for s, d in r.meta.data.items() %}{{ s }} ({{ d.source }}){% if not loop.last %}, {% endif %}{% endfor %}<br>
+ parameters <code>{{ r.meta.params }}</code></p>
+<div class="row">
+  <a class="btn primary" href="/rerun/{{ r.id }}">Re-run with changes</a>
+  <a class="btn" href="/compare?a={{ r.id }}">Compare with another run</a>
+  {% if r.trust %}<span class="chip" title="How well the tests support the result; not a forecast">Evidence: {{ r.trust[0] }}</span>
+  <span class="chip">{{ r.evidence_flags|selectattr('severity','equalto','high')|list|length }} serious · {{ r.evidence_flags|selectattr('severity','equalto','medium')|list|length }} moderate concerns</span>
+  {% if r.risk_flags %}<span class="chip" title="{{ r.risk_flags|map(attribute='message')|join(' ') }}">Risk warning: see below</span>{% endif %}
+  {% else %}<span class="chip">not validated: run <code>bt validate</code></span>{% endif %}
+</div>
+
+<div class="tiles">
+  <div class="tile"><div class="label">Total return</div><div class="value">{{ m.total_return|pct }}</div>
+    <div class="note">{% if m.benchmark_total_return is not none %}{{ r.meta.benchmark }} buy and hold: {{ m.benchmark_total_return|pct }}{% else %}{{ m.cagr|pct }} a year{% endif %}</div></div>
+  <div class="tile"><div class="label">Annual return</div><div class="value">{{ m.cagr|pct }}</div><div class="note">volatility {{ m.volatility|pct }}</div></div>
+  <div class="tile"><div class="label">Sharpe ratio</div><div class="value">{{ m.sharpe|num }}</div><div class="note">Sortino {{ m.sortino|num }}</div></div>
+  <div class="tile"><div class="label">Worst fall</div><div class="value">{{ m.max_drawdown|pct }}</div>
+    <div class="note">{% if m.benchmark_max_drawdown is not none %}{{ r.meta.benchmark }}: {{ m.benchmark_max_drawdown|pct }}{% else %}longest {{ m.longest_drawdown_days }} days{% endif %}</div></div>
+  <div class="tile"><div class="label">Closed trades</div><div class="value">{{ m.trades }}</div><div class="note">win rate {{ m.win_rate|pct(0) }}</div></div>
+</div>
+
+<h2 id="explanation">What the backtest says</h2>
+{% if r.narrative_html %}<div class="card prose">{{ r.narrative_html|safe }}</div>{% endif %}
+{% if r.explanation_html %}<div class="card prose">{{ r.explanation_html|safe }}</div>
+{% else %}<div class="card">No explanation yet. Run <code>bt validate</code> for this strategy, or <code>bt explain runs/{{ r.id }}</code>.</div>{% endif %}
+
+<h2 id="equity-h">Growth of the account</h2>
+<div class="card">
+  <label><input type="checkbox" id="log-scale" data-redraw> Log scale</label>
+  <div id="equity" class="chart" role="img" aria-label="Account value over time, strategy against benchmark"></div>
+  <div id="drawdown" class="chart" role="img" aria-label="Fall from the previous peak over time"></div>
+  <p class="legend-note">Table view of the same data: monthly returns below.</p>
+</div>
+
+<h2>Monthly returns</h2>
+<div class="card scroll">
+<table class="heat">
+  <thead><tr><th>Year</th>{% for mo in ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}<th class="n">{{ mo }}</th>{% endfor %}<th class="n">Year</th></tr></thead>
+  <tbody>
+  {% for row in r.monthly.rows %}
+  <tr><th>{{ row.year }}</th>
+    {% for v in row.months %}{% if v is none %}<td class="empty"></td>
+    {% else %}{% set k = ([v|abs / 0.08, 1]|min * 80)|round(0) %}
+      <td style="background: color-mix(in srgb, var({{ '--pos' if v >= 0 else '--neg' }}) {{ k }}%, var(--mid))">{{ v|pct }}</td>{% endif %}{% endfor %}
+    {% set k = ([row.total|abs / 0.3, 1]|min * 80)|round(0) %}
+    <td style="background: color-mix(in srgb, var({{ '--pos' if row.total >= 0 else '--neg' }}) {{ k }}%, var(--mid)); font-weight:650">{{ row.total|pct }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p class="legend-note">Blue: gain. Red: loss. Gray: near zero. The sign is also in the number.</p>
+</div>
+
+{% if v %}
+<h2>Does it hold up?</h2>
+{% if v.walkforward %}
+<div class="card"><h3>Walk-forward: tuned on the past, traded on the next year</h3>
+  <div id="walkforward" class="chart" role="img" aria-label="Sharpe ratio in-sample and out-of-sample for each walk-forward window"></div>
+  <details><summary>Window table</summary><div class="scroll"><table>
+    <thead><tr><th>Out-of-sample from</th><th>Chosen parameters</th><th class="n">In-sample Sharpe</th><th class="n">Out-of-sample Sharpe</th><th class="n">Out-of-sample return</th><th class="n">Trades</th></tr></thead>
+    <tbody>{% for w in v.walkforward.windows %}<tr><td>{{ w.oos_start }}</td><td><code>{{ w.params }}</code></td><td class="n">{{ w.is_sharpe|num }}</td><td class="n">{{ w.oos_sharpe|num }}</td><td class="n">{{ w.oos_return|pct }}</td><td class="n">{{ w.oos_trades }}</td></tr>{% endfor %}</tbody></table></div></details>
+</div>{% endif %}
+{% if v.montecarlo %}
+<div class="card"><h3>Monte Carlo: the same returns resampled in blocks</h3>
+  <div id="fan" class="chart" role="img" aria-label="Range of account growth across resampled histories"></div>
+  {% set b = v.montecarlo.bootstrap %}
+  <table><thead><tr><th></th><th class="n">5th pct</th><th class="n">Median</th><th class="n">95th pct</th></tr></thead><tbody>
+    <tr><td>Total return</td><td class="n">{{ b.total_return.p5|pct(0) }}</td><td class="n">{{ b.total_return.p50|pct(0) }}</td><td class="n">{{ b.total_return.p95|pct(0) }}</td></tr>
+    <tr><td>Worst fall (95th pct = the 1-in-20 case)</td><td class="n">{{ b.max_drawdown.p5|pct(0) }}</td><td class="n">{{ b.max_drawdown.p50|pct(0) }}</td><td class="n">{{ b.max_drawdown.p95|pct(0) }}</td></tr></tbody></table>
+</div>{% endif %}
+{% if v.kelly and v.kelly.edge %}
+<div class="card"><h3>Position sizing (Kelly)</h3>
+  <div id="kelly" class="chart" role="img" aria-label="Long-run growth rate against position size"></div>
+  <p class="legend-note">Growth peaks at {{ v.kelly.point_estimate|num }}x the size backtested, but the estimate is noisy (plausible range {{ v.kelly.bootstrap.p5|num }}x to {{ v.kelly.bootstrap.p95|num }}x). Suggested: {{ v.kelly.recommended|num }}x.</p>
+</div>{% endif %}
+{% if v.costs %}
+<div class="card"><h3>Trading costs</h3><div id="costs" class="chart" role="img" aria-label="Total return at different cost levels"></div></div>{% endif %}
+{% if v.option_pricing %}
+<div class="card"><h3>Option-pricing sensitivity</h3><div id="pricing" class="chart" role="img" aria-label="Total return under different volatility assumptions"></div>
+  <p class="legend-note">Option prices are modelled. Read the result as a range.</p></div>{% endif %}
+{% if v.regimes %}
+<div class="card scroll"><h3>By market condition (benchmark above or below its 200-day average)</h3><table>
+  <thead><tr><th>Condition</th><th class="n">Share of time</th><th class="n">Total return</th><th class="n">Worst fall</th><th class="n">Trades</th></tr></thead>
+  <tbody>{% for g in v.regimes.trend %}<tr><td>{{ g.regime }}</td><td class="n">{{ g.share_of_time|pct(0) }}</td><td class="n">{{ g.total_return|pct }}</td><td class="n">{{ g.max_drawdown|pct }}</td><td class="n">{{ g.trades }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% endif %}
+
+{% if option_dates %}
+<h2>Option surfaces (3D)</h2>
+<div class="card">
+  <div class="row">
+    <label for="surf-kind">Show</label>
+    <select id="surf-kind" data-redraw>
+      <option value="position:gamma">Open position: gamma over price and time</option>
+      <option value="position:delta">Open position: delta</option><option value="position:theta">Open position: theta</option>
+      <option value="position:vega">Open position: vega</option><option value="position:value">Open position: value</option>
+      <option value="contract:gamma">Contract gamma: strike by days to expiry</option><option value="contract:delta">Contract delta</option>
+      <option value="contract:vega">Contract vega</option><option value="contract:theta">Contract theta</option>
+    </select>
+    <label for="surf-date">on</label>
+    <select id="surf-date" data-redraw>{% for d in option_dates %}<option value="{{ d }}">{{ d }}</option>{% endfor %}</select>
+    <label for="surf-right">Contract surfaces for</label>
+    <select id="surf-right" data-redraw><option value="C">calls</option><option value="P">puts</option></select>
+  </div>
+  <div id="surface" class="chart tall" role="img" aria-label="Rotatable 3D surface of an option greek"></div>
+  <p id="surf-msg" class="legend-note"></p>
+  <script>window.RUN_ID = {{ r.id|tojson }};</script>
+</div>
+{% endif %}
+
+<h2>Latest trades</h2>
+<div class="card scroll"><table>
+  <thead><tr><th>Symbol</th><th>Side</th><th class="n">Quantity</th><th>Opened</th><th>Closed</th><th class="n">Entry</th><th class="n">Exit</th><th class="n">Profit</th><th class="n">Return</th></tr></thead>
+  <tbody>{% for t in trades %}<tr><td>{{ t.symbol }}</td><td>{{ t.side }}</td><td class="n">{{ '{:,.0f}'.format(t.qty) }}</td><td>{{ t.entry_time|string|truncate(10, True, '') }}</td><td>{{ t.exit_time|string|truncate(10, True, '') }}</td>
+    <td class="n">{{ '{:,.2f}'.format(t.entry_price) }}</td><td class="n">{{ '{:,.2f}'.format(t.exit_price) }}</td><td class="n">{{ '{:,.0f}'.format(t.pnl) }}</td><td class="n">{{ t['return']|pct }}</td></tr>{% endfor %}</tbody></table>
+  <p class="legend-note">The most recent 100 closed trades. For rebalanced portfolios every partial sale counts as a trade. Option quantities are in share-equivalents (100 per contract).</p></div>
+
+<script id="chart-data" type="application/json">{{ charts|tojson }}</script>
+{% endblock %}

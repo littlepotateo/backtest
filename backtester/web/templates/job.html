@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Job{% endblock %}
+{% block head %}{% if job.status == 'running' %}<meta http-equiv="refresh" content="3">{% endif %}{% endblock %}
+{% block main %}
+<h1>Re-run: {{ job.status }}</h1>
+<p class="sub">{{ job.strategy }}</p>
+{% if job.status == 'running' %}<p>Running… this page refreshes every few seconds.</p>
+{% elif job.status == 'done' and job.run_id %}<p><a class="btn primary" href="/run/{{ job.run_id }}">Open the new run</a></p>
+{% else %}<p>The run failed. The output is below.</p>{% endif %}
+<pre class="log">{{ job.output }}</pre>
+{% endblock %}
