@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Research{% endblock %}
+{% block main %}
+<h1>Research library</h1>
+<p class="sub">Papers found through Consensus, the results they claim, and the runs made to test them. Add papers with <code>bt paper add</code>; the <code>backtest</code> skill describes the workflow.</p>
+{% if not papers %}<div class="card">No papers saved yet.</div>{% endif %}
+{% for p in papers %}
+<div class="card prose">
+  <h3 style="margin-top:0">{{ p.title }}</h3>
+  <p>{{ p.authors }} {% if p.year %}({{ p.year }}){% endif %} {{ p.venue }} {% if p.url %}· <a href="{{ p.url }}">source</a>{% endif %}</p>
+  <p><span class="chip">Status: {{ p.status }}</span> {% if not p.claims_from_full_text %}<span class="chip">claims from the abstract only</span>{% endif %}</p>
+  {% if p.finding %}<p>{{ p.finding }}</p>{% endif %}
+  {% if p.run_ids %}<p>Runs: {% for rid in p.run_ids %}<a href="/run/{{ rid }}">{{ rid[:15] }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+  <details><summary>Claimed versus replicated</summary>{{ p.comparison_html|safe }}</details>
+  {% if p.notes_html %}<details><summary>Replication notes</summary>{{ p.notes_html|safe }}</details>{% endif %}
+</div>
+{% endfor %}
+{% endblock %}

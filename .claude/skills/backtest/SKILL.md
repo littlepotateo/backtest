@@ -33,7 +33,8 @@ a run in this repository.
    saves `runs/<id>/validation.json` and `explanation.md`.
 6. **Write `runs/<id>/narrative.md`** on top of the generated explanation (see
    "Narrative").
-7. **Tell the user**: the headline numbers, the flags that matter, what you assumed, and
+7. **Show it.** `bt serve` opens the dashboard (run page with charts and explanation, comparison, research library).
+8. **Tell the user**: the headline numbers, the flags that matter, what you assumed, and
    what you could not verify. Offer the next step; do not oversell.
 
 ## Strategy interface

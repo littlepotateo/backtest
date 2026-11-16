@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Backtester{% endblock %}</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/plotly.min.js"></script>
+{% block head %}{% endblock %}
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <span class="brand">Strategy backtester</span>
+  <nav aria-label="Main">
+    <a href="/" {% if nav == '/' or nav.startswith('/run') %}aria-current="page"{% endif %}>Runs</a>
+    <a href="/compare" {% if nav == '/compare' %}aria-current="page"{% endif %}>Compare</a>
+    <a href="/research" {% if nav == '/research' %}aria-current="page"{% endif %}>Research</a>
+  </nav>
+  <button id="theme-toggle" type="button" aria-label="Switch between light and dark">Light / dark</button>
+</header>
+<main>{% block main %}{% endblock %}</main>
+<footer>Simulated results from historical prices, not investment advice. Option prices are modelled, not quotes.</footer>
+</body>
+</html>

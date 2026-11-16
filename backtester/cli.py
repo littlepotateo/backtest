@@ -380,6 +380,14 @@ def cmd_paper(args):
         print(lib.compare(args.id))
 
 
+def cmd_serve(args):
+    import uvicorn
+
+    from backtester.web.app import create_app
+    print(f"Dashboard at http://{args.host}:{args.port} (this computer only; Ctrl+C to stop)")
+    uvicorn.run(create_app(args.root), host=args.host, port=args.port, log_level="warning")
+
+
 def cmd_compare_ibkr(args):
     import numpy as np
     cache = Cache(args.cache)
@@ -502,6 +510,12 @@ def main(argv=None):
     s.add_argument("--claim", action="append", help="a result the paper reports, as the paper states it")
     s.add_argument("--full-text", action="store_true", help="claims were read from the full text, not the abstract")
     s.set_defaults(func=cmd_paper)
+
+    s = sub.add_parser("serve", help="start the local dashboard")
+    s.add_argument("--host", default="127.0.0.1")
+    s.add_argument("--port", type=int, default=8000)
+    s.add_argument("--root", default=".", help="project folder holding runs/, data/ and research/")
+    s.set_defaults(func=cmd_serve)
 
     s = sub.add_parser("compare-ibkr", help="compare an IBKR price-history sample with cached bars")
     s.add_argument("symbol")

@@ -116,3 +116,9 @@ def test_realised_volatility():
     rv = realised_vol(close, 21)
     assert rv.iloc[:21].isna().all()
     assert rv.dropna().mean() == pytest.approx(0.01 * math.sqrt(252), rel=0.05)
+
+
+def test_missing_volatility_history_gives_an_actionable_message():
+    s = make_surface()
+    with pytest.raises(ValueError, match="Start the backtest later"):
+        s.level_on("2023-12-29")
