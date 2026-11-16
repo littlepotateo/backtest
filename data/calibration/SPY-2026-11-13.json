@@ -1,0 +1,10 @@
+{"symbol": "SPY", "date": "2026-11-13", "spot": 754.37,
+ "source": "IBKR connector, frozen delayed bid/ask from the 2026-11-13 close",
+ "quotes": [
+  {"expiry": "2026-12-18", "strike": 680, "right": "P", "bid": 2.46, "ask": 2.50},
+  {"expiry": "2026-12-18", "strike": 717, "right": "P", "bid": 5.45, "ask": 5.50},
+  {"expiry": "2026-12-18", "strike": 754, "right": "P", "bid": 14.08, "ask": 14.23},
+  {"expiry": "2026-12-18", "strike": 754, "right": "C", "bid": 14.37, "ask": 14.55},
+  {"expiry": "2026-12-18", "strike": 792, "right": "C", "bid": 1.17, "ask": 1.22},
+  {"expiry": "2027-03-19", "strike": 680, "right": "P", "bid": 9.80, "ask": 9.88},
+  {"expiry": "2027-03-19", "strike": 755, "right": "C", "bid": 31.03, "ask": 32.28}]}

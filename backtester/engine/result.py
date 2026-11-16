@@ -37,6 +37,9 @@ class RunConfig:
     cash_interest: bool = True        # idle cash earns benchmark - cash_spread (IBKR Lite)
     cash_spread: float = 0.01
     margin_spread: float = 0.025      # borrowed cash pays benchmark + margin_spread
+    pay_dividends: bool = True        # with unadjusted prices, pay dividends in cash
+    option_fee_per_contract: float = 0.65   # IBKR Fixed, as accepted by the account holder
+    option_fee_min_per_order: float = 1.0
 
     def to_dict(self) -> dict:
         return asdict(self)

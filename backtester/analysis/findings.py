@@ -15,7 +15,7 @@ import pandas as pd
 
 from backtester.analysis import checks, coststress, kelly, montecarlo, overfitting, regimes
 from backtester.analysis.metrics import TRADING_DAYS, compute_metrics
-from backtester.analysis.optimize import daily_returns, grid_search, params_key, trial_count
+from backtester.analysis.optimize import daily_returns, grid_search, params_key, sharpe, trial_count
 from backtester.analysis.walkforward import in_out_of_sample, sensitivity, walk_forward
 from backtester.engine.backend import Runner
 
@@ -148,8 +148,34 @@ def validate(runner: Runner, params: dict | None = None, tests: list[str] | None
     if "costs" in tests:
         out["costs"] = coststress.cost_stress(runner, params)
 
+    if cls.options_on:
+        out["option_pricing"] = option_pricing_sensitivity(runner, params, base)
+        for t in ("permutation", "random_entry"):
+            if "overfitting" in out:
+                out["overfitting"][t] = {"skipped": "not meaningful for option positions"}
+
     out["flags"] = flags(out)
     return out
+
+
+def option_pricing_sensitivity(runner: Runner, params: dict, base) -> dict:
+    """Option prices are modelled. Re-run with the volatility level and skew moved, to
+    show how much the result owes to those assumptions."""
+    start = runner.config.initial_cash
+    rows = [{"case": "as configured", "total_return": float(base.equity.iloc[-1] / start - 1),
+             "sharpe": sharpe(daily_returns(base))}]
+    for name, scale in (("volatility level -15%", (0.85, 1.0)), ("volatility level +10%", (1.10, 1.0)),
+                        ("skew 25% flatter", (1.0, 0.75)), ("skew 25% steeper", (1.0, 1.25))):
+        res = runner.run(params, option_scale=scale)
+        rows.append({"case": name, "total_return": float(res.equity.iloc[-1] / start - 1),
+                     "sharpe": sharpe(daily_returns(res))})
+    returns = [r["total_return"] for r in rows]
+    lots = min(start / (float(runner.data[s]["close"].loc[base.equity.index[0]:].iloc[0]) * 100)
+               for s in runner.strategy_cls.options_on)
+    return {"lots_affordable_at_start": lots, "cases": rows, "lowest": min(returns), "highest": max(returns),
+            "sign_changes": min(returns) < 0 < max(returns),
+            "note": "Modelled prices, not quotes. For SPY, a level fitted to one day of IBKR quotes "
+                    "and a level fitted to the Cboe PutWrite index differ by about 16%."}
 
 
 def _flag(severity: str, test: str, message: str) -> dict:
@@ -255,7 +281,7 @@ def flags(v: dict) -> list[dict]:
                            f"The best parameter set is not clearly better than holding cash once "
                            f"selection is accounted for (p = {o['spa']['p_value']:.2f})."))
         p = o.get("permutation")
-        if p and p["p_value"] > 0.10:
+        if p and "p_value" in p and p["p_value"] > 0.10:
             f.append(_flag("medium", "significance",
                            f"Timing is not distinguishable from chance (permutation p = {p['p_value']:.2f}); "
                            "returns may come from market exposure alone."))
@@ -287,6 +313,17 @@ def flags(v: dict) -> list[dict]:
             f.append(_flag("medium", "costs",
                            "Delaying every fill by one bar removes more than half the profit: "
                            "the result depends on fast execution."))
+    op = v.get("option_pricing")
+    if op:
+        f.append(_flag("high" if op["sign_changes"] else "medium", "option pricing",
+                       f"Option prices are modelled, not real quotes. Moving the volatility assumptions "
+                       f"changes the total return from {op['lowest']:.0%} to {op['highest']:.0%}"
+                       + ("; the result changes sign." if op["sign_changes"] else ".")))
+    if op and op["lots_affordable_at_start"] < 20:
+        f.append(_flag("medium", "option pricing",
+                       f"The account covers only about {op['lots_affordable_at_start']:.0f} lots of 100 shares at the start, "
+                       "so position sizes move in large steps and results swing with small timing changes. "
+                       "Test with more capital to see the strategy itself."))
     for name, why in v.get("skipped", {}).items():
         f.append(_flag("info", name, f"Not run: {why}."))
     order = {"high": 0, "medium": 1, "info": 2}

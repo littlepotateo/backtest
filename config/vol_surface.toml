@@ -1,0 +1,14 @@
+# Volatility-surface parameters per underlying, fitted by `bt calibrate-options`.
+
+[SPY]
+# fitted 2026-11-13 to 7 quotes (IBKR connector, frozen delayed bid/ask from the 2026-11-13 close); mean price error 3.7%
+# Level: fitted so that a modelled monthly at-the-money put-write matches the Cboe PutWrite
+# index over 2006-2015 (6.70% a year). Out of sample, 2016-2026: model 9.4% vs index 8.4%.
+# The one-day IBKR fit gave 0.788784; that day the higher level overprices at-the-money options.
+ratio = 0.94
+skew = -0.28544
+curvature = 0.012164
+term = 0.045475
+half_spread = 0.006224
+min_half_spread = 0.01
+calibrated = true
