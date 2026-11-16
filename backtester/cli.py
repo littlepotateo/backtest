@@ -335,11 +335,45 @@ def cmd_validate(args):
                  synthetic_paths=args.synthetic or 200, seed=args.seed, risk_free_rate=args.risk_free,
                  wf_mode=args.walk_forward)
     out = _save_run(args, result, v["metrics"], bench_symbol, benchmark)
-    (out / "validation.json").write_text(json.dumps(to_jsonable(v), indent=2, default=str))
+    saved = to_jsonable(v)
+    (out / "validation.json").write_text(json.dumps(saved, indent=2, default=str))
+    from backtester.explain import explain
+    (out / "explanation.md").write_text(explain(saved, result.meta))
     print(format_summary(result.meta, v["metrics"]))
     print()
     print(format_validation(v))
-    print(f"\n  Saved to {out}")
+    print(f"\n  Saved to {out} (explanation.md written; add narrative.md for a fuller write-up)")
+
+
+def cmd_explain(args):
+    from backtester.explain import explain
+    d = Path(args.run)
+    v = json.loads((d / "validation.json").read_text())
+    meta = json.loads((d / "meta.json").read_text())
+    text = explain(v, meta)
+    (d / "explanation.md").write_text(text)
+    print(text)
+
+
+def cmd_paper(args):
+    from backtester.research import Library
+    lib = Library(args.library)
+    if args.action == "add":
+        pid = lib.add(args.title, authors=args.authors, year=args.year, venue=args.venue, url=args.url,
+                      consensus_id=args.consensus_id, finding=args.finding, claims=args.claim or None,
+                      full_text=args.full_text)
+        print(f"saved {pid}")
+    elif args.action == "list":
+        for p in lib.list():
+            print(f"{p['id']:<58}{p['status']:<18}{len(p['runs'])} run(s)  {p['title']}")
+    elif args.action == "status":
+        lib.set_status(args.id, args.value)
+        print(f"{args.id}: {args.value}")
+    elif args.action == "link":
+        e = lib.link_run(args.id, args.value)
+        print(f"linked {e['run']} ({e['strategy']}, {e['period']})")
+    elif args.action == "compare":
+        print(lib.compare(args.id))
 
 
 def cmd_compare_ibkr(args):
@@ -444,6 +478,26 @@ def main(argv=None):
     s.add_argument("--walk-forward", choices=["rolling", "anchored"], default="rolling")
     s.add_argument("--seed", type=int, default=0)
     s.set_defaults(func=cmd_validate)
+
+    s = sub.add_parser("explain", help="write explanation.md for a saved validated run")
+    s.add_argument("run", help="run folder under runs/")
+    s.set_defaults(func=cmd_explain)
+
+    s = sub.add_parser("paper", help="research-paper library: add, list, status, link, compare")
+    s.add_argument("action", choices=["add", "list", "status", "link", "compare"])
+    s.add_argument("id", nargs="?", help="paper id (status, link, compare)")
+    s.add_argument("value", nargs="?", help="status name (status) or run folder (link)")
+    s.add_argument("--library", default="research/library")
+    s.add_argument("--title")
+    s.add_argument("--authors", default="")
+    s.add_argument("--year", type=int)
+    s.add_argument("--venue", default="")
+    s.add_argument("--url", default="")
+    s.add_argument("--consensus-id", default="")
+    s.add_argument("--finding", default="")
+    s.add_argument("--claim", action="append", help="a result the paper reports, as the paper states it")
+    s.add_argument("--full-text", action="store_true", help="claims were read from the full text, not the abstract")
+    s.set_defaults(func=cmd_paper)
 
     s = sub.add_parser("compare-ibkr", help="compare an IBKR price-history sample with cached bars")
     s.add_argument("symbol")
