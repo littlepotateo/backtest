@@ -236,3 +236,24 @@ def test_rebalance_inside_the_engine_uses_only_past_data_and_sells_first(bars):
     # risk parity gives the calmest asset the largest weight
     last = strat_seen[-1]["value"]
     assert last["C"] > last["A"] > last["B"]
+
+
+def test_rebalancing_strategies_skip_trade_concentration_flags(bars):
+    from backtester.analysis.findings import flags
+    base = {"metrics": {"trades": 200, "total_return": 0.5}, "skipped": {},
+            "checks": {"lookahead": {"passed": True, "same_bar_fills": False}, "data": {},
+                       "trades": {"trades": 200, "top_5pct_trades": 10, "top_5pct_share_of_gross_profit": 0.8,
+                                  "net_profit_from_trades": 100.0, "profit_without_best_trade": -5.0}}}
+    assert any("top 10 trade" in f["message"] for f in flags(base))
+    assert not any("top 10 trade" in f["message"] for f in flags({**base, "rebalanced": True}))
+    rng = np.random.default_rng(2)
+    data = {s: bars(100 * np.exp(np.cumsum(rng.normal(0.0004, 0.01, 200)))) for s in "AB"}
+
+    class R(Strategy):
+        universe = ["A", "B"]
+
+        def on_bar(self, ctx):
+            ctx.rebalance({"A": 0.5, "B": 0.5})
+
+    res = Runner(R, RunConfig(costs=CostModel.zero()), data=data).run()
+    assert res.meta["rebalance_calls"] == 200

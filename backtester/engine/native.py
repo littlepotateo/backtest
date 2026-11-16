@@ -40,6 +40,7 @@ class _Sim:
         self.entry_fee_per_share: dict[str, float] = {}    # commission only
         self.pending: dict[str, float] = {}
         self.records: list[dict] = []
+        self.rebalance_calls = 0
         self.waited: dict[str, int] = {}
         self.interest_earned = 0.0
         self.interest_paid = 0.0
@@ -301,6 +302,7 @@ class NativeBackend:
             "unfilled_orders": dict(sim.pending),
             "warnings": dict(sim.warnings),
             "records": sim.records,
+            "rebalance_calls": sim.rebalance_calls,
             "interest": {"earned": sim.interest_earned, "paid": sim.interest_paid},
             "dividends_received": sim.dividends,
             "options": self._option_meta(sim, option_models),

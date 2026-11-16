@@ -119,3 +119,9 @@ def test_cli_end_to_end(tmp_path, capsys):
     meta = json.loads((run_dir / "meta.json").read_text())
     assert metrics["trades"] > 0 and meta["params"] == {"fast": 10, "slow": 30}
     assert meta["data"]["SPY"]["source"] == "ibkr" and meta["backend"] == "native"
+
+
+def test_param_parsing_handles_booleans_numbers_and_text():
+    got = cli._parse_params(["a=True", "b=false", "c=None", "d=3", "e=0.25", "f=black_litterman", "g=[1, 2]"])
+    assert got == {"a": True, "b": False, "c": None, "d": 3, "e": 0.25, "f": "black_litterman", "g": [1, 2]}
+    assert got["b"] is False and got["a"] is True
