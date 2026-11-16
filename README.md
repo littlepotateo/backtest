@@ -9,7 +9,8 @@ Method research: `docs/research/`
 
 Built: data cache, stock/ETF engine (daily and intraday), metrics, the validation tests (walk-forward, Monte Carlo, Kelly, overfitting statistics, regimes, cost stress, look-ahead check), and portfolio allocation (equal weight, inverse volatility, risk parity, minimum variance, mean-variance, Black-Litterman).
 Options (stage 5): Black-Scholes pricing on a calibrated volatility surface, a synthetic chain, defined-risk option positions in the engine, and 3D gamma surfaces. Option prices are modelled, not quotes; read the pricing-sensitivity line in `bt validate` output.
-Not built yet: written explanations and the Claude Code skill, the dashboard.
+Explanations and papers (stage 6): `bt validate` writes `explanation.md`; `bt explain` regenerates it; `bt paper` keeps a library of research papers with their claims and linked runs; `.claude/skills/backtest/SKILL.md` is the workflow for turning a description or paper into a result.
+Not built yet: the dashboard.
 
 ## Setup
 

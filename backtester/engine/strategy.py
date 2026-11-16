@@ -194,6 +194,7 @@ class Context:
     def rebalance(self, weights: dict) -> None:
         """Trade toward target weights ({symbol: fraction of equity}). Symbols in the
         universe that are not mentioned are sold. Sales fill before purchases."""
+        self._sim.rebalance_calls += 1
         for symbol in self._sim.data:
             self.order_target_percent(symbol, float(weights.get(symbol, 0.0)))
 

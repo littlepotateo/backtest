@@ -60,6 +60,7 @@ def validate(runner: Runner, params: dict | None = None, tests: list[str] | None
     base = runner.run(params)
     r = daily_returns(base)
     out: dict = {"params": params, "tests_run": tests, "skipped": {},
+                 "rebalanced": base.meta.get("rebalance_calls", 0) > 0,
                  "metrics": compute_metrics(base, risk_free_rate, benchmark_close)}
     grid = cls.grid()
     has_grid = len(grid) > 1
@@ -209,9 +210,12 @@ def flags(v: dict) -> list[dict]:
                 f.append(_flag("info" if "standard deviations" in issue else "medium", "data", f"{s}: {issue}."))
         t = c["trades"]
         share = t.get("top_5pct_share_of_gross_profit")
+        if v.get("rebalanced"):
+            share = None                  # each partial sale at a rebalance counts as a trade
         if share is not None and share > 0.5 and t["trades"] >= 10:
             f.append(_flag("medium", "trades", f"The top {t['top_5pct_trades']} trade(s) produced {share:.0%} of gross profit."))
-        if t.get("net_profit_from_trades", 0) > 0 and t.get("profit_without_best_trade", 0) <= 0:
+        if not v.get("rebalanced") and t.get("net_profit_from_trades", 0) > 0 \
+                and t.get("profit_without_best_trade", 0) <= 0:
             f.append(_flag("high", "trades", "Without its single best trade the strategy does not make money."))
 
     wf = v.get("walkforward")

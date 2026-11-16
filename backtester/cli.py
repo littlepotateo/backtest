@@ -37,6 +37,10 @@ def _parse_params(items: list[str]) -> dict:
     out = {}
     for item in items or []:
         key, _, raw = item.partition("=")
+        words = {"true": True, "false": False, "none": None}
+        if raw.lower() in words:                       # Python-style words, any case
+            out[key] = words[raw.lower()]
+            continue
         try:
             out[key] = json.loads(raw)
         except json.JSONDecodeError:

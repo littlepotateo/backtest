@@ -1,0 +1,45 @@
+{
+  "papers": {
+    "a-quantitative-approach-to-tactical-asset-alloca-2007": {
+      "added": "2026-11-16",
+      "authors": "Meb Faber",
+      "claims": [
+        "improves risk-adjusted returns across various asset classes",
+        "equity-like returns with bond-like volatility and drawdown",
+        "over thirty consecutive years of positive performance"
+      ],
+      "claims_from_full_text": false,
+      "consensus_id": "w:a04e459f-3043-492a-9ff4-3151aef09092",
+      "finding": "A moving-average timing model, tested in-sample on US equities and out-of-sample on more than twenty other markets, then in an allocation across five asset classes since 1972, gives equity-like returns with bond-like volatility and drawdown.",
+      "id": "a-quantitative-approach-to-tactical-asset-alloca-2007",
+      "runs": [
+        {
+          "data_source": [
+            "yahoo"
+          ],
+          "metrics": {
+            "benchmark_max_drawdown": -0.5518946236615516,
+            "benchmark_total_return": 5.990220230912413,
+            "cagr": 0.04528426383349293,
+            "max_drawdown": -0.14922390781832573,
+            "sharpe": 0.3444286283690039,
+            "total_return": 1.3646860098045632,
+            "trades": 438,
+            "volatility": 0.07978599351551462
+          },
+          "period": "2007-06-01 to 2026-11-16",
+          "run": "runs/20261116-143932-FaberTiming",
+          "strategy": "FaberTiming"
+        }
+      ],
+      "status": "partly replicated",
+      "strategies": [
+        "FaberTiming"
+      ],
+      "title": "A Quantitative Approach to Tactical Asset Allocation",
+      "url": "https://consensus.app/papers/details/w:a04e459f-3043-492a-9ff4-3151aef09092/",
+      "venue": "The Journal of Wealth Management",
+      "year": 2007
+    }
+  }
+}
