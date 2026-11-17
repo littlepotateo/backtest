@@ -7,6 +7,7 @@ Python); the results are saved here so they persist and the dashboard can show t
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from datetime import date
@@ -17,8 +18,15 @@ from backtester import paths
 STATUSES = ("candidate", "replicating", "replicated", "partly replicated", "not replicated", "rejected")
 
 
+VALID_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,120}$")
+
+
 def slug(title: str, year: int | None = None) -> str:
+    """A file-safe id from the title. A title with no Latin letters or digits (for example Chinese or only
+    symbols) would give an empty id, so it falls back to a short hash of the title."""
     base = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:48].strip("-")
+    if not base:
+        base = "paper-" + hashlib.sha1(title.encode("utf-8")).hexdigest()[:8]
     return f"{base}-{year}" if year else base
 
 
@@ -28,7 +36,34 @@ class Library:
         self.index_path = self.root / "index.json"
 
     def _read(self) -> dict:
-        return json.loads(self.index_path.read_text()) if self.index_path.exists() else {"papers": {}}
+        data = json.loads(self.index_path.read_text()) if self.index_path.exists() else {"papers": {}}
+        if any(not VALID_ID.match(pid) for pid in data["papers"]):
+            self._repair(data)
+        return data
+
+    def _repair(self, data: dict) -> None:
+        """Papers saved by an older version could get an unusable id (empty, or starting with '-'), which made their
+        PDF link, edit and delete fail with 'not found'. Give them a proper id and move their files."""
+        papers = data["papers"]
+        for old in [pid for pid in papers if not VALID_ID.match(pid)]:
+            entry = papers.pop(old)
+            new = slug(entry.get("title") or "paper", entry.get("year"))
+            n = 2
+            while new in papers:
+                new = f"{slug(entry.get('title') or 'paper', entry.get('year'))}-{n}"
+                n += 1
+            entry["id"] = new
+            for key, suffix, folder in (("pdf", ".pdf", "files"), ("text_file", ".txt", "files")):
+                if entry.get(key):
+                    src, dst = self.root / folder / f"{old}{suffix}", self.root / folder / f"{new}{suffix}"
+                    if src.exists():
+                        src.rename(dst)
+                    entry[key] = f"{folder}/{new}{suffix}"
+            notes = self.root / f"{old}.md"
+            if notes.exists() and not (self.root / f"{new}.md").exists():
+                notes.rename(self.root / f"{new}.md")
+            papers[new] = entry
+        self._write(data)
 
     def _write(self, data: dict) -> None:
         self.root.mkdir(parents=True, exist_ok=True)

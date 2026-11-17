@@ -14,14 +14,16 @@ import urllib.parse
 import urllib.request
 
 from backtester import settings
+from backtester.errors import CodedError
 from backtester.data.yahoo import explain_network_error, ssl_context
 
 URL = "https://api.openalex.org/works?"
 FIELDS = "id,doi,title,publication_year,authorships,primary_location,open_access,abstract_inverted_index,cited_by_count"
 
 
-class SearchError(ValueError):
+class SearchError(CodedError):
     """The search failed. The message says why."""
+    code = "BT-SRCH-000"
 
 
 def rate_limit_message(e: urllib.error.HTTPError, has_key: bool) -> str:
@@ -68,9 +70,9 @@ def parse_results(payload: dict) -> list[dict]:
 def search_papers(query: str, limit: int = 10) -> list[dict]:
     query = " ".join((query or "").split())
     if len(query) < 3:
-        raise SearchError("Type at least three characters to search.")
+        raise SearchError("Type at least three characters to search.", "BT-SRCH-001")
     if len(query) > 200:
-        raise SearchError("Keep the search under 200 characters.")
+        raise SearchError("Keep the search under 200 characters.", "BT-SRCH-002")
     params = urllib.parse.urlencode({"search": query, "per-page": max(1, min(limit, 25)), "select": FIELDS})
     headers = {"User-Agent": "backtester-dashboard"}
     key = settings.get("openalex_api_key")
@@ -82,12 +84,13 @@ def search_papers(query: str, limit: int = 10) -> list[dict]:
             payload = json.load(r)
     except urllib.error.HTTPError as e:
         if e.code == 429:
-            raise SearchError(rate_limit_message(e, bool(key)))
+            raise SearchError(rate_limit_message(e, bool(key)), "BT-SRCH-429")
         if e.code in (401, 403) and key:
-            raise SearchError("The paper search service did not accept the saved key. Check it under OpenAlex settings.")
-        raise SearchError(f"The paper search service returned HTTP {e.code}.")
+            raise SearchError("The paper search service did not accept the saved key. Check it under OpenAlex settings.", "BT-SRCH-401")
+        raise SearchError(f"The paper search service returned HTTP {e.code}.", "BT-SRCH-500")
     except (urllib.error.URLError, socket.timeout, TimeoutError, ssl.SSLError, ConnectionError) as e:
-        raise SearchError(str(explain_network_error(e, "the paper search service (OpenAlex)")))
+        net = explain_network_error(e, "the paper search service (OpenAlex)")
+        raise SearchError(str(net), net.code)
     except json.JSONDecodeError:
-        raise SearchError("The paper search service sent a reply that could not be read.")
+        raise SearchError("The paper search service sent a reply that could not be read.", "BT-SRCH-003")
     return parse_results(payload)

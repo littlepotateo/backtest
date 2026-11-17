@@ -44,7 +44,7 @@ def _reach(url: str, label: str) -> dict:
     except urllib.error.HTTPError as e:                     # the server answered, so the connection works; the code says if it helped
         hint = ""
         if e.code == 429:
-            hint = ("The service is limiting requests from this network. For paper search, add a free key under Search settings "
+            hint = ("The service is limiting requests from this network. For paper search, add a free key under OpenAlex settings "
                     "on the Research page; for prices, wait and try again.")
         return _check(f"Reach {label}", e.code < 400, f"answered HTTP {e.code} in {time.time() - t0:.1f}s", hint)
     except (urllib.error.URLError, socket.timeout, TimeoutError, ssl.SSLError, ConnectionError) as e:

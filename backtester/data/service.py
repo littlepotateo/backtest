@@ -32,13 +32,13 @@ def clean_symbols(text: str) -> list[str]:
         if not raw:
             continue
         if not SYMBOL.match(raw):
-            raise DataError(f"'{raw}' does not look like a ticker symbol.")
+            raise DataError(f"'{raw}' does not look like a ticker symbol.", "BT-DATA-004")
         if raw.upper() not in out:
             out.append(raw.upper())
     if not out:
-        raise DataError("Enter at least one symbol, for example SPY.")
+        raise DataError("Enter at least one symbol, for example SPY.", "BT-DATA-004")
     if len(out) > 40:
-        raise DataError("Fetch at most 40 symbols at a time.")
+        raise DataError("Fetch at most 40 symbols at a time.", "BT-DATA-005")
     return out
 
 
@@ -106,7 +106,7 @@ def import_file(cache: Cache, filename: str, content: bytes, symbol: str | None 
     stem = re.sub(r"[^A-Za-z0-9^.=-]+", "", Path(name).stem.split("_")[0].split("-")[0]).upper()
     symbol = (symbol or stem or "").upper()
     if not SYMBOL.match(symbol):
-        raise DataError(f"Could not tell which symbol {name} holds. Enter the symbol and import again.")
+        raise DataError(f"Could not tell which symbol {name} holds. Enter the symbol and import again.", "BT-DATA-006")
     suffix = Path(name).suffix.lower()
     log(f"Reading {name} as {symbol}…")
     try:
@@ -123,11 +123,11 @@ def import_file(cache: Cache, filename: str, content: bytes, symbol: str | None 
                 tmp.unlink(missing_ok=True)
             interval, source = interval or _guess_interval(bars), "csv"
         else:
-            raise DataError(f"{name}: only .csv and .json price files can be imported.")
+            raise DataError(f"{name}: only .csv and .json price files can be imported.", "BT-DATA-007")
     except (ValueError, KeyError, json.JSONDecodeError, UnicodeDecodeError) as e:
-        raise DataError(f"{name} could not be read as price data: {e}")
+        raise DataError(f"{name} could not be read as price data: {e}", "BT-DATA-008")
     if interval not in INTERVAL_SECONDS:
-        raise DataError(f"Unknown bar size {interval!r}.")
+        raise DataError(f"Unknown bar size {interval!r}.", "BT-DATA-003")
     saved = cache.save(symbol, interval, bars, source=source)
     msg = f"{symbol} {interval}: {len(saved):,} bars from {name} ({saved.index[0].date()} to {saved.index[-1].date()})"
     log(msg)
@@ -144,7 +144,7 @@ def _guess_interval(bars: pd.DataFrame) -> str:
 def delete_dataset(cache: Cache, symbol: str, interval: str) -> None:
     p = cache._path(symbol, interval)
     if not p.exists():
-        raise DataError(f"{symbol} {interval} is not cached.")
+        raise DataError(f"{symbol} {interval} is not cached.", "BT-DATA-009")
     p.unlink()
     p.with_suffix(".json").unlink(missing_ok=True)
     try:

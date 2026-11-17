@@ -7,13 +7,19 @@ const el = (tag, attrs = {}, ...kids) => {
   return e;
 };
 
+// An Error whose message ends with its code, so whatever shows it also shows the code to quote.
+function coded(message, code) { const e = new Error(`${message} [${code}]`); e.code = code; return e; }
+
 const API = {
   async request(url, options) {
     let r;
-    try { r = await fetch(url, options); } catch (e) { throw new Error('Could not reach the dashboard server. Is it still running?'); }
+    try { r = await fetch(url, options); } catch (e) { throw coded('Could not reach the dashboard server. Is it still running?', 'BT-NET-000'); }
     let j = {};
     try { j = await r.json(); } catch (e) { /* not JSON */ }
-    if (!r.ok) throw new Error(j.error || j.detail || `The server answered with an error (${r.status}).`);
+    if (r.status === 404 && j.detail === 'Not Found' && !j.code) {   // a server that predates this page answers with a bare "Not Found"
+      throw coded(`The dashboard server has no “${(options && options.method) || 'GET'} ${String(url).split('?')[0]}” feature. The server is running an older version of the program than this page: close it and start it again with start.sh (Mac: Start Backtester.command, Windows: start.bat).`, 'BT-HTTP-404');
+    }
+    if (!r.ok) throw coded(j.error || j.detail || `The server answered with an error (${r.status}).`, j.code || `BT-HTTP-${r.status}`);
     return j;
   },
   get(url) { return this.request(url); },
@@ -22,8 +28,8 @@ const API = {
 };
 
 // A script error would otherwise leave a button doing nothing with no explanation.
-window.addEventListener('error', (e) => { if (e.message && typeof toast === 'function' && $id('toasts')) toast('This page hit a script error: ' + e.message + '. Try Refresh; if it persists, restart the dashboard.', 'bad', 0); });
-window.addEventListener('unhandledrejection', (e) => { if (typeof toast === 'function' && $id('toasts')) toast('Something failed in this page: ' + ((e.reason && e.reason.message) || e.reason), 'bad', 0); });
+window.addEventListener('error', (e) => { if (e.message && typeof toast === 'function' && $id('toasts')) toast('This page hit a script error: ' + e.message + '. Try Refresh; if it persists, restart the dashboard. [BT-JS-001]', 'bad', 0); });
+window.addEventListener('unhandledrejection', (e) => { if (typeof toast === 'function' && $id('toasts')) toast('Something failed in this page: ' + ((e.reason && e.reason.message) || e.reason) + (e.reason && e.reason.code ? '' : ' [BT-JS-002]'), 'bad', 0); });
 
 function toast(message, kind = 'info', ms = 7000) {
   const box = $id('toasts');
@@ -49,10 +55,10 @@ async function followTask(taskId, container, title) {
       const ok = t.status === 'done';
       status.className = 'status ' + (ok ? 'ok' : 'bad');
       status.textContent = ok ? '✓ Done' : '✕ Failed';
-      if (!ok && t.error) card.append(el('p', { class: 'error-line', text: t.error }));
+      if (!ok && t.error) card.append(el('p', { class: 'error-line', text: t.error + (t.code ? ` [${t.code}]` : '') }));
       const partial = ok && t.result && t.result.failed && t.result.failed.length;
       if (partial) { status.className = 'status warn'; status.textContent = `! Done, ${t.result.failed.length} failed`; }
-      toast(ok ? (partial ? `${title}: finished with ${t.result.failed.length} failure(s). See Activity.` : `${title}: done.`) : `${title}: failed. ${t.error || ''}`,
+      toast(ok ? (partial ? `${title}: finished with ${t.result.failed.length} failure(s). See Activity.` : `${title}: done.`) : `${title}: failed. ${t.error || ''}${t.code ? ` [${t.code}]` : ''}`,
         ok ? (partial ? 'warn' : 'ok') : 'bad', ok ? 5000 : 0);
       return t;
     }

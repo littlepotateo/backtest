@@ -15,12 +15,15 @@ import secrets
 from datetime import datetime
 from pathlib import Path
 
+from backtester.errors import CodedError
+
 REQUEST_ID = re.compile(r"^[0-9]{8}-[0-9]{6}-[a-f0-9]{4}$")
 MAX_QUERY = 300
 
 
-class RequestError(ValueError):
+class RequestError(CodedError):
     """A search request was not valid."""
+    code = "BT-REQ-000"
 
 
 def instruction(req: dict) -> str:
@@ -48,9 +51,9 @@ class Requests:
     def create(self, query: str, notes: str = "") -> dict:
         query, notes = " ".join((query or "").split()), " ".join((notes or "").split())
         if len(query) < 3:
-            raise RequestError("Describe what to search for, for example “momentum strategies for ETFs”.")
+            raise RequestError("Describe what to search for, for example “momentum strategies for ETFs”.", "BT-REQ-001")
         if len(query) > MAX_QUERY or len(notes) > 1000:
-            raise RequestError(f"Keep the search to {MAX_QUERY} characters and the guidance to 1000.")
+            raise RequestError(f"Keep the search to {MAX_QUERY} characters and the guidance to 1000.", "BT-REQ-002")
         now = datetime.now()
         req = {"id": f"{now:%Y%m%d-%H%M%S}-{secrets.token_hex(2)}", "query": query, "notes": notes,
                "status": "pending", "created": now.isoformat(timespec="seconds"), "papers": [], "summary": "", "done": None}
