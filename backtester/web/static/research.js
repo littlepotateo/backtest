@@ -105,7 +105,10 @@ document.addEventListener('DOMContentLoaded', () => {
       box.append(el('h2', { text: results.length ? `Results for “${q}”` : 'No results' }));
       if (!results.length) box.append(el('p', { class: 'muted', text: 'Try different or fewer words.' }));
       results.forEach((p) => box.append(resultCard(p)));
-    } catch (err) { toast(err.message, 'bad', 0); } finally { btn.disabled = false; syncSource(); }
+    } catch (err) {
+      box.replaceChildren(el('div', { class: 'status bad' }, el('span', { class: 'dot', text: '✕' }), err.message));
+      toast(err.message, 'bad', 0);
+    } finally { btn.disabled = false; syncSource(); }
   });
   $id('check-requests').addEventListener('click', async () => {
     await Promise.all([reloadRequests(), reloadLibrary()]); toast('Checked.', 'ok', 2000);

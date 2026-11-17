@@ -57,6 +57,15 @@ def register(app: FastAPI, ctx) -> None:
     cache = Cache(ctx.cache_dir)
     tasks, runs_dir = ctx.tasks, ctx.runs_dir
 
+    @app.exception_handler(Exception)
+    async def unexpected(request: Request, e: Exception):
+        if not request.url.path.startswith("/api/"):
+            raise e
+        import traceback
+        traceback.print_exception(e)
+        return fail(f"Something went wrong inside the dashboard ({type(e).__name__}). The terminal window running it has the details; "
+                    f"if a package is missing, restart with start.sh.", 500)
+
     @app.exception_handler(DataError)
     async def data_error(_: Request, e: DataError):
         return fail(str(e))

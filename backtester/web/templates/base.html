@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Backtester{% endblock %}</title>
-<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="{{ static('style.css') }}">
 <script src="/static/plotly.min.js"></script>
 {% block head %}{% endblock %}
-<script src="/static/common.js" defer></script>
-<script src="/static/app.js" defer></script>
+<script src="{{ static('common.js') }}" defer></script>
+<script src="{{ static('app.js') }}" defer></script>
 {% block scripts %}{% endblock %}
 </head>
 <body>
@@ -24,6 +24,9 @@
   <button id="refresh-btn" type="button" title="Reload everything from disk and clear filters, selections and finished activity messages">↻ Refresh</button>
   <button id="theme-toggle" type="button" aria-label="Switch between light and dark">Light / dark</button>
 </header>
+{% if missing_packages %}<div class="banner bad" role="alert"><strong>Some required packages are missing:</strong> {{ missing_packages|join(', ') }}.
+  Some features (such as reading dropped PDFs or uploads) will fail until they are installed. Close this dashboard and start it again with
+  <code>start.sh</code> (Mac: <code>Start Backtester.command</code>, Windows: <code>start.bat</code>); it installs them.</div>{% endif %}
 <div id="toasts" role="status" aria-live="polite"></div>
 <main>{% block main %}{% endblock %}</main>
 <footer>Simulated results from historical prices, not investment advice. Option prices are modelled, not quotes.</footer>

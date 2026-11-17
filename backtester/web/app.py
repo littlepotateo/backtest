@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from backtester import paths
+from backtester import diagnostics, paths
 from backtester.analysis.findings import ALL_TESTS, CHEAP_TESTS
 from backtester.research import Library
 from backtester.research.library import STATUSES
@@ -32,6 +32,15 @@ HERE = Path(__file__).parent
 PLOTLY_JS = Path(plotly.__file__).parent / "package_data" / "plotly.min.js"
 
 
+class NoCacheStatic(StaticFiles):
+    """Static files that the browser must re-check every time, so an updated page never runs an old script."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 def pct(x, digits: int = 1):
     return "n/a" if x is None else f"{x * 100:,.{digits}f}%"
 
@@ -47,6 +56,15 @@ def create_app(root: str | Path | None = None) -> FastAPI:
     templates = Jinja2Templates(directory=str(HERE / "templates"))
     templates.env.filters.update(pct=pct, num=num)
     templates.env.globals["glossary"] = GLOSSARY
+
+    def static(name: str) -> str:
+        """URL of a static file with its modification time, so a changed file is never served from an old cache."""
+        try:
+            return f"/static/{name}?v={int((HERE / 'static' / name).stat().st_mtime)}"
+        except OSError:
+            return f"/static/{name}"
+    templates.env.globals["static"] = static
+    templates.env.globals["missing_packages"] = diagnostics.missing_packages()
     jobs = Jobs(root, runs_dir, cache_dir)
     tasks = Tasks()
     env = SimpleNamespace(root=root, cache_dir=cache_dir, runs_dir=runs_dir, lib_dir=lib_dir, tasks=tasks)
@@ -65,7 +83,7 @@ def create_app(root: str | Path | None = None) -> FastAPI:
     def plotly_js():
         return FileResponse(PLOTLY_JS, media_type="application/javascript")
 
-    app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
+    app.mount("/static", NoCacheStatic(directory=str(HERE / "static")), name="static")
 
     def page(request: Request, name: str, **ctx):
         return templates.TemplateResponse(request, name, {"nav": request.url.path, **ctx})

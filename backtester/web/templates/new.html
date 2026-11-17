@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import status, term %}
 {% block title %}New backtest{% endblock %}
-{% block scripts %}<script src="/static/new.js" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ static('new.js') }}" defer></script>{% endblock %}
 {% block main %}
 <h1>New backtest</h1>
 <p class="sub">Choose a strategy, make sure its data is ready, and run it. The run includes the safety checks that tell you whether to trust the result.</p>

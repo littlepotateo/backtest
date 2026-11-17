@@ -21,6 +21,10 @@ const API = {
   upload(url, formData) { return this.request(url, { method: 'POST', body: formData }); },
 };
 
+// A script error would otherwise leave a button doing nothing with no explanation.
+window.addEventListener('error', (e) => { if (e.message && typeof toast === 'function' && $id('toasts')) toast('This page hit a script error: ' + e.message + '. Try Refresh; if it persists, restart the dashboard.', 'bad', 0); });
+window.addEventListener('unhandledrejection', (e) => { if (typeof toast === 'function' && $id('toasts')) toast('Something failed in this page: ' + ((e.reason && e.reason.message) || e.reason), 'bad', 0); });
+
 function toast(message, kind = 'info', ms = 7000) {
   const box = $id('toasts');
   const t = el('div', { class: `toast ${kind}`, role: kind === 'bad' ? 'alert' : 'status' }, el('span', { text: message }),
@@ -82,7 +86,10 @@ function rememberForm(id, fields) {
 function dropZone(zone, input, onFiles) {
   ['dragenter', 'dragover'].forEach((ev) => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add('over'); }));
   ['dragleave', 'drop'].forEach((ev) => zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.remove('over'); }));
-  zone.addEventListener('drop', (e) => { if (e.dataTransfer.files.length) onFiles(e.dataTransfer.files); });
+  zone.addEventListener('drop', (e) => {
+    if (e.dataTransfer.files.length) onFiles(e.dataTransfer.files);
+    else toast('That was not a file from your computer (a link or text cannot be dropped). Download the PDF first, then drag the saved file here.', 'warn');
+  });
   zone.addEventListener('click', () => input.click());
   zone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
   input.addEventListener('change', () => { if (input.files.length) { onFiles(input.files); input.value = ''; } });

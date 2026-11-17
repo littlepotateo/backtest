@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import status, term %}
 {% block title %}Data{% endblock %}
-{% block scripts %}<script src="/static/data.js" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ static('data.js') }}" defer></script>{% endblock %}
 {% block main %}
 <h1>Data</h1>
 <p class="sub">Backtests need prices, and (for cash interest) interest rates. Download them here; nothing needs the terminal.</p>
