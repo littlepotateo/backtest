@@ -27,7 +27,7 @@ _INTERVALS = {"1m": "1m", "2m": "2m", "5m": "5m", "15m": "15m", "30m": "30m",
 INTRADAY_LIMIT_DAYS = {"1m": 7, "2m": 59, "5m": 59, "15m": 59, "30m": 59, "1h": 729}
 
 
-class DataError(Exception):
+class DataError(ValueError):
     """A data download or import failed. The message says why and what to try."""
 
 
