@@ -4,6 +4,14 @@
 set -e
 cd "$(dirname "$0")"
 
+# Bring the program up to date first (scripts/update.sh never stops the start-up), then run this file again from the top,
+# because the update may have replaced it. BACKTEST_NO_UPDATE=1 skips the update.
+if [ -z "$BACKTEST_UPDATED" ]; then
+  bash scripts/update.sh || true
+  export BACKTEST_UPDATED=1
+  exec bash "$0" "$@"
+fi
+
 say() { printf '%s\n' "$*"; }
 has_new_python() { "$1" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' >/dev/null 2>&1; }
 
