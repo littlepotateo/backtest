@@ -158,8 +158,11 @@ def dataset_table(cache: Cache) -> list[dict]:
     today = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None)
     rows = []
     for m in cache.list():
-        end = pd.Timestamp(m["end"][:10])
-        age = int((today - end).days)
+        try:
+            end = pd.Timestamp(m["end"][:10])
+            age = int((today - end).days)
+        except (ValueError, TypeError):
+            continue                       # metadata with an unreadable date: left out of the table
         rows.append({**m, "start": m["start"][:10], "end": m["end"][:10], "age_days": age,
                      "stale": age > (5 if m["interval"] == "1d" else 3),
                      "kind": "rate" if m["symbol"] in NON_PRICE else "index" if m["symbol"].startswith("^") else "prices"})

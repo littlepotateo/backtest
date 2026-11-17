@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from backtester import diagnostics, settings
 from backtester.data import service
@@ -26,6 +26,29 @@ from backtester.web import strategies as S
 
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 PAPER_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,120}$")
+
+
+def error_page(request: Request, e: Exception, code: str, status: int = 500) -> HTMLResponse:
+    """A readable page for a failure while building a page, in place of the bare 'Internal Server Error'.
+    It stands alone (no template) so it still works when the shared page layout is what failed."""
+    import html
+    import traceback
+    frames = "\n".join(f"{Path(f.filename).name}:{f.lineno} in {f.name}: {(f.line or '').strip()}"
+                       for f in traceback.extract_tb(e.__traceback__)[-6:])
+    expected = isinstance(e, CodedError)
+    what = html.escape(str(e)) if expected else f"{html.escape(type(e).__name__)}: {html.escape(str(e))}"
+    body = f"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Problem [{code}]</title>
+<style>body{{font:16px/1.5 system-ui,sans-serif;max-width:820px;margin:40px auto;padding:0 16px;color:#1a1a19}}
+code,pre{{background:#f0efec;border-radius:6px;padding:2px 6px}}pre{{padding:12px;overflow:auto;font-size:13px}}</style></head><body>
+<h1>The dashboard could not build this page</h1>
+<p><strong>{what}</strong></p><p>Error code: <code>{code}</code> &nbsp; Page: <code>{html.escape(request.url.path)}</code>
+&nbsp; Server version: <code>{html.escape(server_version())}</code></p>
+{'' if expected else '<p>This is a bug or an unreadable file in your project folders. Send me the code and the lines below.</p>'}
+{'' if expected else f'<details open><summary>Where it happened</summary><pre>{html.escape(frames)}</pre></details>'}
+<p>If it says a package is missing, or the server may be old: close the dashboard and start it again with <code>start.sh</code>
+(Mac: <code>Start Backtester.command</code>, Windows: <code>start.bat</code>). The terminal window running the dashboard has the full details.
+Codes are explained in <code>docs/error-codes.md</code>.</p><p><a href="/data">Data page</a> · <a href="/">Home</a></p></body></html>"""
+    return HTMLResponse(body, status_code=status)
 
 
 def fail(message: str, status: int = 400, code: str | None = None) -> JSONResponse:
@@ -64,10 +87,10 @@ def register(app: FastAPI, ctx) -> None:
 
     @app.exception_handler(Exception)
     async def unexpected(request: Request, e: Exception):
-        if not request.url.path.startswith("/api/"):
-            raise e
         import traceback
         traceback.print_exception(e)
+        if not request.url.path.startswith("/api/"):
+            return error_page(request, e, "BT-HTTP-500")
         return fail(f"Something went wrong inside the dashboard ({type(e).__name__}). The terminal window running it has the details; "
                     f"if a package is missing, restart with start.sh.", 500)
 
@@ -86,7 +109,9 @@ def register(app: FastAPI, ctx) -> None:
         return fail(str(e.detail), e.status_code)
 
     @app.exception_handler(CodedError)
-    async def coded_error(_: Request, e: CodedError):
+    async def coded_error(request: Request, e: CodedError):
+        if not request.url.path.startswith("/api/") and request.method == "GET":
+            return error_page(request, e, e.code, 500)
         return fail(str(e), 400, e.code)
 
     # --- tasks ---------------------------------------------------------------------------

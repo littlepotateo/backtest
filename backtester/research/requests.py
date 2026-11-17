@@ -69,8 +69,15 @@ class Requests:
     def list(self) -> list[dict]:
         if not self.root.exists():
             return []
-        reqs = [json.loads(p.read_text()) for p in self.root.glob("*.json")]
-        return sorted((r for r in reqs if REQUEST_ID.match(r.get("id", ""))), key=lambda r: r["id"], reverse=True)
+        reqs = []
+        for p in self.root.glob("*.json"):
+            try:
+                r = json.loads(p.read_text())
+            except (ValueError, OSError):
+                continue                   # a half-written or damaged request file is skipped
+            if isinstance(r, dict) and REQUEST_ID.match(str(r.get("id", ""))) and r.get("query"):
+                reqs.append({"notes": "", "status": "pending", "papers": [], "summary": "", "created": "", "done": None, **r})
+        return sorted(reqs, key=lambda r: r["id"], reverse=True)
 
     def pending(self) -> list[dict]:
         return [r for r in self.list() if r["status"] == "pending"]

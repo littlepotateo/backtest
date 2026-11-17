@@ -17,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 from backtester import diagnostics, paths
 from backtester.analysis.findings import ALL_TESTS, CHEAP_TESTS
 from backtester.research import Library
-from backtester.research.library import STATUSES
+from backtester.research.library import STATUSES, LibraryError
 from backtester.research.requests import Requests, instruction
 from backtester.version import server_version
 from backtester.data import service
@@ -102,7 +102,10 @@ def create_app(root: str | Path | None = None) -> FastAPI:
     def home(request: Request):
         datasets = service.dataset_table(cache)
         listing = D.list_runs(runs_dir)
-        papers = Library(lib_dir).list()
+        try:
+            papers = Library(lib_dir).list()
+        except LibraryError:               # the Research page explains a damaged library; the home page still opens
+            papers = []
         return page(request, "home.html", datasets=datasets, has_rates=cache.has("^IRX", "1d"),
                     stale=[d for d in datasets if d["stale"]], runs=listing[:5], n_runs=len(listing),
                     papers=papers, strategies=S.list_strategies(root))
