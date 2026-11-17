@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from datetime import date
 from pathlib import Path
 
@@ -25,7 +26,8 @@ VALID_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,120}$")
 def slug(title: str, year: int | None = None) -> str:
     """A file-safe id from the title. A title with no Latin letters or digits (for example Chinese or only
     symbols) would give an empty id, so it falls back to a short hash of the title."""
-    base = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:48].strip("-")
+    plain = unicodedata.normalize("NFKD", title).encode("ascii", "ignore").decode()      # ﬁ -> fi, é -> e
+    base = re.sub(r"[^a-z0-9]+", "-", plain.lower()).strip("-")[:48].strip("-")
     if not base:
         base = "paper-" + hashlib.sha1(title.encode("utf-8")).hexdigest()[:8]
     return f"{base}-{year}" if year else base
@@ -45,7 +47,7 @@ class Library:
         data = {"papers": {}}
         if self.index_path.exists():
             try:
-                data = json.loads(self.index_path.read_text())
+                data = json.loads(self.index_path.read_text(encoding="utf-8"))
             except (ValueError, OSError) as e:
                 raise LibraryError(f"The paper library file {self.index_path} cannot be read ({type(e).__name__}). "
                                    f"Open it in a text editor to fix it, or rename it to start an empty library (your PDFs are not lost).",
@@ -92,7 +94,7 @@ class Library:
 
     def _write(self, data: dict) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
-        self.index_path.write_text(json.dumps(data, indent=2, sort_keys=True))
+        self.index_path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
     def add(self, title: str, *, authors: str = "", year: int | None = None, venue: str = "",
             url: str = "", consensus_id: str = "", finding: str = "", claims: list[str] | None = None,
@@ -119,7 +121,7 @@ class Library:
         notes = self.root / f"{pid}.md"
         if not notes.exists():
             notes.write_text(f"# {title}\n\n{authors} ({year}). {venue}\n\n{url}\n\n## Key finding\n\n{finding}\n\n"
-                             "## Rules (as stated)\n\n## Assumptions I had to make\n\n## Replication notes\n")
+                             "## Rules (as stated)\n\n## Assumptions I had to make\n\n## Replication notes\n", encoding="utf-8")
         return pid
 
     def attach_pdf(self, pid: str, pdf: bytes, text: str) -> None:
@@ -129,7 +131,7 @@ class Library:
         folder = self.root / "files"
         folder.mkdir(parents=True, exist_ok=True)
         (folder / f"{pid}.pdf").write_bytes(pdf)
-        (folder / f"{pid}.txt").write_text(text)
+        (folder / f"{pid}.txt").write_text(text, encoding="utf-8")
         entry = data["papers"][pid]
         entry.update(pdf=f"files/{pid}.pdf", text_file=f"files/{pid}.txt", claims_from_full_text=bool(text.strip()))
         self._write(data)
@@ -183,8 +185,8 @@ class Library:
     def link_run(self, pid: str, run_dir: str | Path, strategy: str | None = None) -> dict:
         """Attach a finished run to a paper, copying the headline metrics."""
         run_dir = Path(run_dir)
-        metrics = json.loads((run_dir / "metrics.json").read_text())
-        meta = json.loads((run_dir / "meta.json").read_text())
+        metrics = json.loads((run_dir / "metrics.json").read_text(encoding="utf-8"))
+        meta = json.loads((run_dir / "meta.json").read_text(encoding="utf-8"))
         data = self._read()
         self.get(pid)
         entry = {"run": str(run_dir), "strategy": strategy or meta.get("strategy"),

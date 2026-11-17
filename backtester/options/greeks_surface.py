@@ -87,4 +87,4 @@ def write_html(surface: dict, path, title: str) -> None:
             "<script>Plotly.newPlot('c', %s, %s, {responsive: true});</script></body></html>"
             % (title, json.dumps(data), json.dumps(layout)))
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_text(html)
+    Path(path).write_text(html, encoding="utf-8")

@@ -40,7 +40,7 @@ class SurfaceParams:
     def load(cls, symbol: str, path: str | Path | None = None) -> "SurfaceParams":
         path = Path(path or paths.SURFACE)
         if path.exists():
-            raw = tomllib.loads(path.read_text()).get(symbol.upper())
+            raw = tomllib.loads(path.read_text(encoding="utf-8")).get(symbol.upper())
             if raw:
                 return cls(**{k: v for k, v in raw.items() if k in cls.__dataclass_fields__})
         return cls()

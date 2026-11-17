@@ -89,6 +89,11 @@ def register(app: FastAPI, ctx) -> None:
     async def unexpected(request: Request, e: Exception):
         import traceback
         traceback.print_exception(e)
+        if isinstance(e, UnicodeError):
+            code = "BT-FILE-001"
+            message = ("A file could not be read or written because of a text-encoding problem (a character the computer's default "
+                       "encoding does not have). Restart with start.bat / start.sh, which switch to UTF-8, and try again.")
+            return fail(message, 500, code) if request.url.path.startswith("/api/") else error_page(request, e, code)
         if not request.url.path.startswith("/api/"):
             return error_page(request, e, "BT-HTTP-500")
         return fail(f"Something went wrong inside the dashboard ({type(e).__name__}). The terminal window running it has the details; "

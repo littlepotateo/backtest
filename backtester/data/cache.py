@@ -91,7 +91,7 @@ class Cache:
             "market": "usa", "security_type": "equity",
             "lean_resolution": LEAN_RESOLUTION.get(interval),
         }
-        path.with_suffix(".json").write_text(json.dumps(meta, indent=2))
+        path.with_suffix(".json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
         return bars
 
     def load(self, symbol: str, interval: str, start=None, end=None) -> pd.DataFrame:
@@ -110,7 +110,7 @@ class Cache:
     def meta(self, symbol: str, interval: str) -> dict:
         path = self._path(symbol, interval).with_suffix(".json")
         try:
-            return json.loads(path.read_text()) if path.exists() else {}
+            return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
         except (ValueError, OSError):
             return {}
 
@@ -120,7 +120,7 @@ class Cache:
         out = []
         for p in sorted(self.root.glob("*/*.json")):
             try:
-                m = json.loads(p.read_text())
+                m = json.loads(p.read_text(encoding="utf-8"))
             except (ValueError, OSError):
                 continue
             if isinstance(m, dict) and all(isinstance(m.get(k), str) and m.get(k) for k in ("symbol", "interval", "start", "end")):

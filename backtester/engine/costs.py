@@ -45,5 +45,5 @@ class CostModel:
         path = Path(path or paths.COSTS)
         if not path.exists():
             return cls()
-        raw = tomllib.loads(path.read_text())
+        raw = tomllib.loads(path.read_text(encoding="utf-8"))
         return cls(confirmed=bool(raw.get("confirmed", False)), **raw.get("stock", {}))

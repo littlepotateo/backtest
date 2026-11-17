@@ -75,7 +75,7 @@ def calibrate(snapshot: dict, level: float, rate: float, dividend_yield: float) 
 def save_params(symbol: str, report: dict, path: str | Path | None = None) -> None:
     """Write or replace the [SYMBOL] section of the surface config."""
     path = Path(path or paths.SURFACE)
-    text = path.read_text() if path.exists() else (
+    text = path.read_text(encoding="utf-8") if path.exists() else (
         "# Volatility-surface parameters per underlying, fitted by `bt calibrate-options`.\n")
     lines, skip = [], False
     for line in text.splitlines():
@@ -89,4 +89,4 @@ def save_params(symbol: str, report: dict, path: str | Path | None = None) -> No
              f"mean price error {report['mean_abs_price_error_pct']:.1f}%"]
     block += [f"{k} = {str(v).lower() if isinstance(v, bool) else repr(round(v, 6))}" for k, v in p.items()]
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines).rstrip() + "\n\n" + "\n".join(block) + "\n")
+    path.write_text("\n".join(lines).rstrip() + "\n\n" + "\n".join(block) + "\n", encoding="utf-8")

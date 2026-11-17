@@ -20,7 +20,7 @@ from backtester.data.cache import interval_from_seconds, normalise_bars
 def parse_ibkr_history(payload: dict | str | Path) -> tuple[pd.DataFrame, str]:
     """Return (bars, interval) from one connector response (dict, JSON text or file)."""
     if isinstance(payload, Path) or (isinstance(payload, str) and not payload.lstrip().startswith("{")):
-        payload = Path(payload).read_text()
+        payload = Path(payload).read_text(encoding="utf-8")
     if isinstance(payload, str):
         payload = json.loads(payload)
     for key in ("time", "open", "high", "low", "close"):

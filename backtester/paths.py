@@ -19,7 +19,7 @@ MARKER = 'name = "backtester"'
 def _is_project(d: Path) -> bool:
     f = d / "pyproject.toml"
     try:
-        return f.is_file() and MARKER in f.read_text()
+        return f.is_file() and MARKER in f.read_text(encoding="utf-8")
     except OSError:
         return False
 

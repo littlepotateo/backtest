@@ -41,6 +41,7 @@ if [ ! -f "$STAMP" ] || [ "$(cat "$STAMP")" != "$NOW" ] || [ ! -x .venv/bin/bt ]
   printf '%s' "$NOW" > "$STAMP"
 fi
 
+export PYTHONUTF8=1
 OPEN="--open"
 [ -n "$BACKTEST_NO_BROWSER" ] && OPEN=""
 exec .venv/bin/bt serve $OPEN "$@"

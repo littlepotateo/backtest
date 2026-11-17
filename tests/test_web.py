@@ -152,8 +152,9 @@ def test_rerun_starts_a_job_and_reports_status(client, project, monkeypatch):
     class FakeProc:
         pid = 1
 
-        def __init__(self, cmd, cwd, stdout, stderr):
+        def __init__(self, cmd, cwd, stdout, stderr, env=None):
             started["cmd"] = cmd
+            started["env"] = env
             stdout.write("Saved to /x/runs/20260102-000000-Trend (explanation.md written)\n")
             stdout.flush()
 
@@ -165,6 +166,7 @@ def test_rerun_starts_a_job_and_reports_status(client, project, monkeypatch):
                     follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"].startswith("/jobs/")
     assert "validate" in started["cmd"]
+    assert started["env"]["PYTHONUTF8"] == "1"          # the child reads and writes files as UTF-8 on Windows too
     page = client.get(r.headers["location"])
     assert page.status_code == 200 and "done" in page.text and "20260102-000000-Trend" in page.text
     assert client.post("/rerun", data={"strategy": "../x.py"}).status_code == 400

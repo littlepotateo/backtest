@@ -182,7 +182,7 @@ def create_app(root: str | Path | None = None) -> FastAPI:
         for p in lib.list():
             notes = lib_dir / f"{p['id']}.md"
             papers.append({**p, "comparison_html": D.render_markdown(lib.compare(p["id"])),
-                           "notes_html": D.render_markdown(notes.read_text()) if notes.exists() else "",
+                           "notes_html": D.render_markdown(notes.read_text(encoding="utf-8")) if notes.exists() else "",
                            "run_ids": [Path(x["run"]).name for x in p["runs"]]})
         return {"papers": papers, "statuses": STATUSES}
 

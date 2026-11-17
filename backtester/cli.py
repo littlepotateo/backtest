@@ -156,7 +156,7 @@ def cmd_calibrate_options(args):
     from backtester.engine.backend import load_rates
     from backtester.options.calibrate import calibrate, save_params
     from backtester.options.surface import VOL_INDEX, realised_vol
-    snap = json.loads(Path(args.file).read_text())
+    snap = json.loads(Path(args.file).read_text(encoding="utf-8"))
     cache, sym = Cache(args.cache), snap["symbol"].upper()
     day = to_utc(snap["date"]) + pd.Timedelta(days=1)
     index = VOL_INDEX.get(sym)
@@ -186,7 +186,7 @@ def cmd_calibrate_options(args):
     if not args.dry_run:
         save_params(sym, rep, args.config)
         out = Path(args.file).with_suffix(".report.json")
-        out.write_text(json.dumps(rep, indent=2))
+        out.write_text(json.dumps(rep, indent=2), encoding="utf-8")
         print(f"  saved to {args.config} and {out}")
 
 
@@ -225,7 +225,7 @@ def _save_run(args, result, metrics, bench_symbol, benchmark):
     result.meta["strategy_file"] = strategy_label(args.strategy)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     out = result.save(Path(args.out) / f"{stamp}-{result.meta['strategy']}")
-    (out / "metrics.json").write_text(json.dumps(metrics, indent=2))
+    (out / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
     return out
 
 
@@ -366,9 +366,9 @@ def cmd_validate(args):
                  wf_mode=args.walk_forward)
     out = _save_run(args, result, v["metrics"], bench_symbol, benchmark)
     saved = to_jsonable(v)
-    (out / "validation.json").write_text(json.dumps(saved, indent=2, default=str))
+    (out / "validation.json").write_text(json.dumps(saved, indent=2, default=str), encoding="utf-8")
     from backtester.explain import explain
-    (out / "explanation.md").write_text(explain(saved, result.meta))
+    (out / "explanation.md").write_text(explain(saved, result.meta), encoding="utf-8")
     print(format_summary(result.meta, v["metrics"]))
     print()
     print(format_validation(v))
@@ -378,10 +378,10 @@ def cmd_validate(args):
 def cmd_explain(args):
     from backtester.explain import explain
     d = Path(args.run)
-    v = json.loads((d / "validation.json").read_text())
-    meta = json.loads((d / "meta.json").read_text())
+    v = json.loads((d / "validation.json").read_text(encoding="utf-8"))
+    meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
     text = explain(v, meta)
-    (d / "explanation.md").write_text(text)
+    (d / "explanation.md").write_text(text, encoding="utf-8")
     print(text)
 
 
@@ -474,7 +474,7 @@ def cmd_compare_ibkr(args):
     meta_path = cache._path(args.symbol, interval).with_suffix(".json")
     meta = cache.meta(args.symbol, interval)
     meta["ibkr_check"] = report
-    meta_path.write_text(json.dumps(meta, indent=2))
+    meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"{args.symbol.upper()} {interval}: {report['bars_compared']} of {report['bars_in_sample']} bars compared "
           f"against {meta.get('source', '?')}")
     for k, val in report["max_relative_difference"].items():
@@ -483,6 +483,11 @@ def cmd_compare_ibkr(args):
 
 
 def main(argv=None):
+    for stream in (sys.stdout, sys.stderr):      # a redirected or legacy console (Windows) must not fail on letters like the fi ligature
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
     p = argparse.ArgumentParser(prog="bt", description="Strategy backtester")
     p.add_argument("--cache", default=paths.CACHE, help="bar cache folder (default: the project folder's data/cache)")
     sub = p.add_subparsers(dest="command", required=True)

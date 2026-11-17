@@ -23,12 +23,12 @@ echo Setting up ^(first run only^) ...
 if errorlevel 1 ( echo Could not create the .venv folder. & pause & exit /b 1 )
 
 :have_venv
-if not exist .venv\.installed (
-  echo Installing the backtester and its dependencies ...
-  .venv\Scripts\python -m pip install --quiet --upgrade pip > .venv\install.log 2>&1
-  .venv\Scripts\python -m pip install --quiet -e . >> .venv\install.log 2>&1
-  if errorlevel 1 ( type .venv\install.log & echo Installation failed ^(see above^). & pause & exit /b 1 )
-  echo done> .venv\.installed
-)
+rem Keep the installed packages in step with pyproject.toml. When nothing changed this takes a few seconds.
+echo Checking installed packages ...
+.venv\Scripts\python -m pip install --quiet --upgrade pip > .venv\install.log 2>&1
+.venv\Scripts\python -m pip install --quiet -e . >> .venv\install.log 2>&1
+if errorlevel 1 ( type .venv\install.log & echo Installation failed ^(see above^). & pause & exit /b 1 )
+rem Read and write every file as UTF-8 (Windows would otherwise use a legacy code page and fail on letters such as the fi ligature in papers).
+set PYTHONUTF8=1
 .venv\Scripts\bt serve --open %*
 if errorlevel 1 pause

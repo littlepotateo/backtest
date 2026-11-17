@@ -41,7 +41,7 @@ def render_markdown(text: str) -> str:
 
 
 def _read_json(p: Path):
-    return json.loads(p.read_text()) if p.exists() else None
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
 
 def summarise(d: Path) -> dict | None:
@@ -130,8 +130,8 @@ def load_run(runs_dir: Path, run_id: str, cache_root: Path) -> dict:
     if validation:
         explanation = explain(validation, meta)
     else:
-        explanation = (d / "explanation.md").read_text() if (d / "explanation.md").exists() else None
-    narrative = (d / "narrative.md").read_text() if (d / "narrative.md").exists() else None
+        explanation = (d / "explanation.md").read_text(encoding="utf-8") if (d / "explanation.md").exists() else None
+    narrative = (d / "narrative.md").read_text(encoding="utf-8") if (d / "narrative.md").exists() else None
     trades = pd.read_parquet(d / "trades.parquet")
     return {
         "id": run_id, "dir": d, "meta": meta, "metrics": metrics, "validation": validation, "flags": flags,
