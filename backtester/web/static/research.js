@@ -4,6 +4,20 @@ async function reloadLibrary() {
   if (r.ok) $id('library').innerHTML = await r.text();
 }
 
+async function reloadRequests() {
+  const r = await fetch('/research/requests');
+  if (r.ok) {
+    const html = await r.text();
+    $id('requests').innerHTML = html;
+    $id('requests-box').hidden = !html.trim();
+  }
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast('Copied. Paste it into Claude Code.', 'ok', 4000); }
+  catch (err) { prompt('Copy this text:', text); }
+}
+
 function showUploadResults(results) {
   const box = $id('upload-results'); box.replaceChildren();
   results.forEach((x) => {
@@ -59,24 +73,56 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   $id('clear-key').addEventListener('click', async () => { try { await API.post('/api/settings', { openalex_api_key: '' }); toast('Key removed.', 'ok'); showKey(); } catch (e) { toast(e.message, 'bad', 0); } });
   rememberForm('papers', ['search-q']);
+  const source = () => document.querySelector('input[name="source"]:checked').value;
+  const syncSource = () => {
+    const c = source() === 'consensus';
+    $id('notes-row').hidden = !c;
+    $id('search-btn').textContent = c ? 'Ask Claude to search' : 'Search';
+    $id('search-settings').hidden = c;
+    $id('source-help').textContent = c
+      ? 'Consensus can only be used by Claude, so this saves your request and gives you one line to paste into Claude Code. Claude searches, saves the best papers to your library and marks the request done.'
+      : 'Searches OpenAlex, a free index of scholarly work. Results show abstracts, not full text; to read a paper in full, download its PDF and drop it on the left.';
+    localStorage.setItem('papers.source', source());
+  };
+  document.querySelectorAll('input[name="source"]').forEach((r) => r.addEventListener('change', syncSource));
+  const saved = localStorage.getItem('papers.source');
+  if (saved) { const r = document.querySelector(`input[name="source"][value="${saved}"]`); if (r) r.checked = true; }
+  syncSource();
   $id('search-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const q = $id('search-q').value.trim(), box = $id('search-results'), btn = $id('search-btn');
-    btn.disabled = true; btn.textContent = 'Searching…'; box.replaceChildren();
+    btn.disabled = true; box.replaceChildren();
     try {
+      if (source() === 'consensus') {
+        const made = await API.post('/api/requests', { query: q, notes: $id('search-notes').value });
+        await reloadRequests();
+        toast('Request saved. Copy its instruction into Claude Code.', 'ok', 6000);
+        $id('requests-box').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return made;
+      }
+      btn.textContent = 'Searching…';
       const { results } = await API.get('/api/papers/search?q=' + encodeURIComponent(q));
       box.append(el('h2', { text: results.length ? `Results for “${q}”` : 'No results' }));
       if (!results.length) box.append(el('p', { class: 'muted', text: 'Try different or fewer words.' }));
       results.forEach((p) => box.append(resultCard(p)));
-    } catch (err) { toast(err.message, 'bad', 0); } finally { btn.disabled = false; btn.textContent = 'Search'; }
+    } catch (err) { toast(err.message, 'bad', 0); } finally { btn.disabled = false; syncSource(); }
+  });
+  $id('check-requests').addEventListener('click', async () => {
+    await Promise.all([reloadRequests(), reloadLibrary()]); toast('Checked.', 'ok', 2000);
+  });
+  $id('requests').addEventListener('click', async (e) => {
+    const card = e.target.closest('.request'); if (!card) return;
+    if (e.target.classList.contains('copy-prompt')) copyText(e.target.dataset.prompt);
+    else if (e.target.classList.contains('delete-request')) {
+      try { await API.post(`/api/requests/${card.dataset.id}/delete`); await reloadRequests(); } catch (err) { toast(err.message, 'bad', 0); }
+    }
   });
   // Buttons inside library cards (the library is re-rendered, so listen on the container).
   $id('library').addEventListener('click', async (e) => {
     const card = e.target.closest('.paper'); if (!card) return;
     const id = card.dataset.id;
     if (e.target.classList.contains('copy-prompt')) {
-      try { await navigator.clipboard.writeText(e.target.dataset.prompt); toast('Copied. Paste it into Claude Code.', 'ok', 4000); }
-      catch (err) { prompt('Copy this text:', e.target.dataset.prompt); }
+      copyText(e.target.dataset.prompt);
     } else if (e.target.classList.contains('delete-paper')) {
       if (!confirm('Delete this paper from the library, including its saved PDF? Results you ran from it are kept.')) return;
       try { await API.post(`/api/papers/${id}/delete`); toast('Paper deleted.', 'ok'); reloadLibrary(); } catch (err) { toast(err.message, 'bad', 0); }
