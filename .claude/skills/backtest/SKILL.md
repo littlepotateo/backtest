@@ -103,6 +103,8 @@ try next. Rules:
 
 ## Papers
 
+**Dashboard jobs.** If the `claude` program is installed where the dashboard runs, the Research page runs analysis and Consensus search itself (`backtester/claude_code.py`, `backtester/research/claude_jobs.py`): you are then called with a JSON-only prompt and read-only tools; reply with exactly the JSON object requested. Everything below applies when you are called by hand.
+
 **Requests from the dashboard.** The Research page can save a paper-search request
 (the user's topic and optional guidance) because only Claude can call Consensus. When the
 user pastes an instruction naming a request id, or says they made a search request, run

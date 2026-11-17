@@ -11,7 +11,7 @@ a plain-language explanation. Python 3.11+, `.venv/bin/python`, command `bt`.
 - `backtester/options/` pricing, volatility surface, chain, calibration, gamma surfaces
 - `backtester/portfolio/` weighting methods and Black-Litterman
 - `backtester/explain/` explanation text; `backtester/research/` paper library
-- `backtester/web/` local dashboard (FastAPI, server-rendered pages, Plotly from the installed package, no JS build); `bt serve`; the whole workflow (data, runs, papers) works from the browser; launchers `start.sh`, `Start Backtester.command`, `start.bat`; `bt doctor` diagnoses setup/network; optional OpenAlex key in git-ignored `settings.local.json`
+- `backtester/web/` local dashboard (FastAPI, server-rendered pages, Plotly from the installed package, no JS build); `bt serve`; the whole workflow (data, runs, papers) works from the browser; launchers `start.sh`, `Start Backtester.command`, `start.bat`; `bt doctor` diagnoses setup/network; optional OpenAlex key in git-ignored `settings.local.json`; `backtester/claude_code.py` runs the local `claude -p` for dashboard jobs (paper analysis, Consensus search): read-only tools, JSON reply validated and saved by Python (never give it Bash or Write), override the program path with `BACKTEST_CLAUDE`
 - `strategies/examples/` worked strategies; `config/` costs and surface parameters
 - `docs/research/` method write-ups (formulas, pitfalls, known-answer tests) and the literature sweep
 - `.claude/skills/backtest/SKILL.md` the workflow for turning a description or paper into a result

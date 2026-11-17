@@ -19,6 +19,20 @@ async function copyText(text) {
   catch (err) { prompt('Copy this text:', text); }
 }
 
+let claudeReady = false;
+
+// Run a background Claude job and show its progress; refresh the page parts it changes when it ends.
+async function followClaude(taskId, title) {
+  const t = await followTask(taskId, $id('claude-activity'), title);
+  await Promise.all([reloadLibrary(), reloadRequests()]);
+  return t;
+}
+
+async function startAnalysis(pid, title) {
+  try { const { task_id } = await API.post(`/api/papers/${pid}/analyse`); followClaude(task_id, `Claude analyses: ${title}`); }
+  catch (e) { toast(e.message, 'bad', 0); }
+}
+
 function showUploadResults(results) {
   const box = $id('upload-results'); box.replaceChildren();
   results.forEach((x) => {
@@ -38,8 +52,12 @@ async function uploadPapers(files) {
     const { results } = await API.upload('/api/papers/upload', fd);
     showUploadResults(results);
     const ok = results.filter((r) => r.ok).length;
-    toast(ok ? `${ok} paper(s) added to the library. Check the title, then fill in the claimed results.` : 'No papers were added. See the messages below the drop zone.', ok ? 'ok' : 'bad', ok ? 7000 : 0);
+    toast(ok ? (claudeReady && $id('auto-analyse').checked ? `${ok} paper(s) added. Claude is reading ${ok > 1 ? 'them' : 'it'} now; progress is shown below.` : `${ok} paper(s) added to the library. Check the title, then fill in the claimed results.`) : 'No papers were added. See the messages below the drop zone.', ok ? 'ok' : 'bad', ok ? 7000 : 0);
     await reloadLibrary();
+    if ($id('auto-analyse').checked) {
+      if (!claudeReady) { if (ok) toast('Claude Code was not found on this computer, so the papers were saved without analysis. See the note under the drop zone.', 'warn', 0); }
+      else results.filter((r) => r.ok).forEach((r) => startAnalysis(r.id, r.title));
+    }
   } catch (e) { toast(e.message, 'bad', 0); } finally { zone.style.opacity = 1; }
 }
 
@@ -66,6 +84,11 @@ function resultCard(p) {
 
 document.addEventListener('DOMContentLoaded', () => {
   dropZone($id('paper-drop'), $id('paper-file'), uploadPapers);
+  API.get('/api/claude/status').then((s) => {
+    claudeReady = s.available;
+    $id('claude-status').textContent = s.available ? 'Claude Code was found on this computer: papers can be analysed and searched from this page.'
+      : 'Claude Code was not found on this computer, so Claude cannot analyse papers from here yet. ' + s.help;
+  }).catch(() => {});
   const showKey = async () => { try { const s = await API.get('/api/settings'); $id('key-status').textContent = s.openalex_key_set ? 'A key is saved.' : 'No key saved (using the free shared allowance).'; } catch (e) { /* ignore */ } };
   showKey();
   $id('save-key').addEventListener('click', async () => {
@@ -81,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $id('search-btn').textContent = c ? 'Ask Claude to search' : 'Search';
     $id('search-settings').hidden = c;
     $id('source-help').textContent = c
-      ? 'Consensus can only be used by Claude, so this saves your request and gives you one line to paste into Claude Code. Claude searches, saves the best papers to your library and marks the request done.'
+      ? 'Claude Code (installed on this computer) searches Consensus for you and saves the best papers to your library. If Claude Code is not installed, the request is saved with one line to paste into Claude Code instead.'
       : 'Searches OpenAlex, a free index of scholarly work. Results show abstracts, not full text; to read a paper in full, download its PDF and drop it on the left.';
     localStorage.setItem('papers.source', source());
   };
@@ -95,10 +118,13 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.disabled = true; box.replaceChildren();
     try {
       if (source() === 'consensus') {
-        const made = await API.post('/api/requests', { query: q, notes: $id('search-notes').value });
+        const made = await API.post('/api/claude/search', { query: q, notes: $id('search-notes').value });
         await reloadRequests();
-        toast('Request saved. Copy its instruction into Claude Code.', 'ok', 6000);
-        $id('requests-box').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (made.claude) { toast('Claude is searching Consensus. Progress is shown below.', 'ok', 5000); followClaude(made.task_id, `Claude searches Consensus: ${q}`); }
+        else {
+          toast('Claude Code was not found on this computer, so the request was saved. Copy its instruction into Claude Code. ' + made.help, 'warn', 0);
+          $id('requests-box').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
         return made;
       }
       btn.textContent = 'Searching…';
@@ -125,7 +151,9 @@ document.addEventListener('DOMContentLoaded', () => {
   $id('library').addEventListener('click', async (e) => {
     const card = e.target.closest('.paper'); if (!card) return;
     const id = card.dataset.id;
-    if (e.target.classList.contains('copy-prompt')) {
+    if (e.target.classList.contains('analyse-paper')) {
+      startAnalysis(id, card.querySelector('h3').textContent);
+    } else if (e.target.classList.contains('copy-prompt')) {
       copyText(e.target.dataset.prompt);
     } else if (e.target.classList.contains('delete-paper')) {
       if (!confirm('Delete this paper from the library, including its saved PDF? Results you ran from it are kept.')) return;
