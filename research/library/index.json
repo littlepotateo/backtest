@@ -40,6 +40,125 @@
       "url": "https://consensus.app/papers/details/w:a04e459f-3043-492a-9ff4-3151aef09092/",
       "venue": "The Journal of Wealth Management",
       "year": 2007
+    },
+    "is-trend-still-your-friend-a-microstructural-acc-2026": {
+      "abstract": "",
+      "added": "2026-11-17",
+      "authors": "Jutta G. Kurth et al.",
+      "claims": [
+        "Since approximately 2009, short-term trends have ceased to deliver reliable returns.",
+        "Post-2008 trend PnL has collapsed on small-tick contracts across all signal horizons, while remaining essentially intact on large-tick ones."
+      ],
+      "claims_from_full_text": false,
+      "consensus_id": "w:169eb69a-256b-4736-8de0-33899d725512",
+      "doi": "",
+      "finding": "Using about 100 futures contracts over 1995-2025, documents that short-term trends stopped delivering reliable returns after about 2009 and links the break to volatility-normalised tick size.",
+      "id": "is-trend-still-your-friend-a-microstructural-acc-2026",
+      "openalex_id": "",
+      "pdf": "",
+      "runs": [],
+      "status": "candidate",
+      "strategies": [],
+      "text_file": "",
+      "title": "Is Trend Still Your Friend?: A Microstructural Account of the Demise of Short-Term Trend-Following",
+      "url": "https://consensus.app/papers/details/w:169eb69a-256b-4736-8de0-33899d725512/?utm_source=claude_desktop",
+      "venue": "arXiv",
+      "year": 2026
+    },
+    "optimal-trend-following-portfolios-2023": {
+      "abstract": "",
+      "added": "2026-11-17",
+      "authors": "S\u00e9bastien Valeyre",
+      "claims": [
+        "The overperformance of the proposed optimal portfolio, applied to cross-asset trading universe, is confirmed by empirical backtests."
+      ],
+      "claims_from_full_text": false,
+      "consensus_id": "w:87141601-e1c8-47c0-b921-8a8f854e86a7",
+      "doi": "",
+      "finding": "Derives an optimal trend-following portfolio decomposed into Markowitz, risk parity, agnostic risk parity and trend following on risk parity components; cross-asset backtests are reported.",
+      "id": "optimal-trend-following-portfolios-2023",
+      "openalex_id": "",
+      "pdf": "",
+      "runs": [],
+      "status": "candidate",
+      "strategies": [],
+      "text_file": "",
+      "title": "Optimal trend-following portfolios",
+      "url": "https://consensus.app/papers/details/w:87141601-e1c8-47c0-b921-8a8f854e86a7/?utm_source=claude_desktop",
+      "venue": "The Journal of Investment Strategies",
+      "year": 2023
+    },
+    "optimal-trend-following-trading-rules-2016": {
+      "abstract": "",
+      "added": "2026-11-17",
+      "authors": "Min Dai et al.",
+      "claims": [
+        "We show, via a thorough theoretical analysis, that the optimal trading strategy is trend following.",
+        "Numerical simulations and backtesting, in support of our theoretical findings, are also reported."
+      ],
+      "claims_from_full_text": false,
+      "consensus_id": "w:41059ee4-aca2-464a-bc6f-aa16f0492d11",
+      "doi": "",
+      "finding": "In a bull-bear switching market with a hidden Markov regime, shows that the log-utility-optimal trading strategy is trend following; numerical simulations and backtesting are reported.",
+      "id": "optimal-trend-following-trading-rules-2016",
+      "openalex_id": "",
+      "pdf": "",
+      "runs": [],
+      "status": "candidate",
+      "strategies": [],
+      "text_file": "",
+      "title": "Optimal Trend Following Trading Rules",
+      "url": "https://consensus.app/papers/details/w:41059ee4-aca2-464a-bc6f-aa16f0492d11/?utm_source=claude_desktop",
+      "venue": "Mathematics of Operations Research",
+      "year": 2016
+    },
+    "revisiting-the-structure-of-trend-premia-when-di-2025": {
+      "abstract": "",
+      "added": "2026-11-17",
+      "authors": "Alban Etienne et al.",
+      "claims": [
+        "Removing the 125-day layer improves Sharpe ratios and drawdown efficiency while maintaining benchmark correlation.",
+        "The medium-term band contributes little incremental performance or diversification once short- and long-term components are included."
+      ],
+      "claims_from_full_text": false,
+      "consensus_id": "w:11f5b466-eeff-42ee-b296-13b76fcc2558",
+      "doi": "",
+      "finding": "Optimises the weights of trend horizons per asset; finds the medium-term (about 125-day) layer adds little once short and long horizons are included, giving a short-plus-long 'barbell'.",
+      "id": "revisiting-the-structure-of-trend-premia-when-di-2025",
+      "openalex_id": "",
+      "pdf": "",
+      "runs": [],
+      "status": "candidate",
+      "strategies": [],
+      "text_file": "",
+      "title": "Revisiting the Structure of Trend Premia: When Diversification Hides Redundancy",
+      "url": "https://consensus.app/papers/details/w:11f5b466-eeff-42ee-b296-13b76fcc2558/?utm_source=claude_desktop",
+      "venue": "SSRN Electronic Journal",
+      "year": 2025
+    },
+    "trend-following-with-better-adaptation-to-large-2022": {
+      "abstract": "",
+      "added": "2026-11-17",
+      "authors": "Teruko Takada et al.",
+      "claims": [
+        "Significant advantage of trend-following rules in avoiding downside risks.",
+        "A higher positive trend direction ratio leads to poor performance relative to buy-and-hold returns."
+      ],
+      "claims_from_full_text": false,
+      "consensus_id": "w:89e4dc4b-e8fd-4deb-b148-bcfc654c1e1d",
+      "doi": "",
+      "finding": "Out-of-sample test on four major stock indices of moving-average and momentum trend rules; examines how market conditions and the averaging window affect recent profitability and suggests a guideline for choosing the window.",
+      "id": "trend-following-with-better-adaptation-to-large-2022",
+      "openalex_id": "",
+      "pdf": "",
+      "runs": [],
+      "status": "candidate",
+      "strategies": [],
+      "text_file": "",
+      "title": "Trend-following with better adaptation to large downside risks",
+      "url": "https://consensus.app/papers/details/w:89e4dc4b-e8fd-4deb-b148-bcfc654c1e1d/?utm_source=claude_desktop",
+      "venue": "PLoS ONE",
+      "year": 2022
     }
   }
 }
