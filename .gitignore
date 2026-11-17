@@ -8,3 +8,5 @@ runs/
 strategies/examples/*.trials.jsonl
 settings.local.json
 research/library/requests/
+data/external/
+strategies/*/*.trials.jsonl
