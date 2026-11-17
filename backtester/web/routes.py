@@ -15,6 +15,7 @@ from backtester.data.cache import INTERVAL_SECONDS, Cache
 from backtester.data.yahoo import _INTERVALS, DataError
 from backtester.research import Library
 from backtester.research.ingest import PaperError, read_pdf
+from backtester.research.requests import RequestError, Requests
 from backtester.research.search import SearchError, search_papers
 from backtester.web import data as D
 from backtester.web import strategies as S
@@ -225,6 +226,22 @@ def register(app: FastAPI, ctx) -> None:
                       url=str(b.get("url", ""))[:500], finding=str(b.get("finding", ""))[:3000], doi=str(b.get("doi", ""))[:200],
                       abstract=str(b.get("abstract", ""))[:3000], openalex_id=str(b.get("openalex_id", ""))[:40])
         return {"id": pid}
+
+    @app.post("/api/requests")
+    async def request_create(request: Request):
+        b = await body(request)
+        try:
+            return Requests(ctx.lib_dir).create(str(b.get("query", "")), str(b.get("notes", "")))
+        except RequestError as e:
+            raise DataError(str(e))
+
+    @app.post("/api/requests/{rid}/delete")
+    def request_delete(rid: str):
+        try:
+            Requests(ctx.lib_dir).delete(rid)
+        except KeyError:
+            return fail("No such request.", 404)
+        return {"ok": True}
 
     @app.post("/api/papers/upload")
     async def paper_upload(request: Request):

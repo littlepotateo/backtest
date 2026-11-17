@@ -103,6 +103,16 @@ try next. Rules:
 
 ## Papers
 
+**Requests from the dashboard.** The Research page can save a paper-search request
+(the user's topic and optional guidance) because only Claude can call Consensus. When the
+user pastes an instruction naming a request id, or says they made a search request, run
+`bt paper requests` to see what is pending, run the Consensus search for it (rules below),
+save the best 3 to 6 papers with `bt paper add --request <id> ...` (this links them to the
+request and puts them in the library as candidates), then finish with
+`bt paper request-done <id> --summary "<what you found and what you would test first>"`.
+If nothing relevant turns up, still run `request-done` and say so in the summary.
+The dashboard shows the result after "Check for results" or Refresh.
+
 1. **Find:** use the Consensus `search` tool (at most three searches at once). Present
    results with the numbered citations and links Consensus gives, and include the
    upgrade line the tool returns, word for word.

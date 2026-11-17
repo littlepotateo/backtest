@@ -7,3 +7,4 @@ runs/
 *.egg-info/
 strategies/examples/*.trials.jsonl
 settings.local.json
+research/library/requests/

@@ -16,19 +16,31 @@
     <div id="upload-results"></div>
   </div>
   <div>
-    <h3 style="margin-top:0">Search published papers</h3>
-    <form id="search-form" class="row">
-      <input id="search-q" type="text" placeholder="e.g. momentum trading strategy" style="max-width:none" class="grow" required minlength="3">
-      <button class="primary" type="submit" id="search-btn">Search</button>
+    <h3 style="margin-top:0">Find papers</h3>
+    <form id="search-form">
+      <fieldset class="seg" aria-label="Where to search">
+        <label><input type="radio" name="source" value="consensus" checked> <strong>Consensus</strong> through Claude <span class="muted small">(better results, needs Claude Code)</span></label>
+        <label><input type="radio" name="source" value="openalex"> <strong>OpenAlex</strong> <span class="muted small">(instant, in this page)</span></label>
+      </fieldset>
+      <div class="row">
+        <input id="search-q" type="text" placeholder="e.g. momentum trading strategy" style="max-width:none" class="grow" required minlength="3" maxlength="300">
+        <button class="primary" type="submit" id="search-btn">Ask Claude to search</button>
+      </div>
+      <div id="notes-row"><label class="f" for="search-notes">Guidance for Claude (optional)</label>
+        <input id="search-notes" type="text" maxlength="1000" placeholder="e.g. ETFs only, published after 2010, with out-of-sample tests" style="max-width:none"></div>
     </form>
-    <p class="small muted">Searches OpenAlex, a free index of scholarly work. Results show abstracts, not full text; to read a paper in full, download its PDF and drop it on the left.</p>
-    <details id="search-settings"><summary>Search settings (optional)</summary>
+    <p class="small muted" id="source-help"></p>
+    <details id="search-settings"><summary>OpenAlex settings (optional)</summary>
       <p class="small">OpenAlex gives each network a free daily allowance. If searches say it is used up, get a free key from openalex.org and save it here. It stays on this computer and is never shown again.</p>
       <div class="row"><input id="openalex-key" type="password" autocomplete="off" placeholder="Paste a key" style="max-width:300px">
         <button type="button" id="save-key">Save key</button><button type="button" id="clear-key">Remove key</button>
         <span id="key-status" class="small muted"></span></div>
     </details>
   </div>
+</div>
+<div id="requests-box" {% if not requests %}hidden{% endif %}>
+  <div class="row between"><h2>Searches waiting for Claude</h2><button type="button" id="check-requests">Check for results</button></div>
+  <div id="requests">{% include "_requests.html" %}</div>
 </div>
 <div id="search-results"></div>
 

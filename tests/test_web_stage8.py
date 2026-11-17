@@ -320,7 +320,7 @@ def test_every_page_renders_with_its_key_controls(client, project):
         assert text in data, text
     new = client.get("/new").text
     assert "Demo" in new and "Quick look" in new and "Full checks" in new and 'name="strategy"' in new
-    assert "Drag and drop PDF files here" in client.get("/research").text and "Search published papers" in client.get("/research").text
+    assert "Drag and drop PDF files here" in client.get("/research").text and "Find papers" in client.get("/research").text
     assert "No results yet" in client.get("/runs").text
     assert client.get("/new?strategy=strategies/examples/demo.py").text.count("checked") >= 1
     err = client.post("/rerun", data={"strategy": "../x.py"})
@@ -374,7 +374,7 @@ def test_settings_endpoint_saves_without_revealing(client, monkeypatch, tmp_path
     assert client.post("/api/settings", json={"openalex_api_key": "has space"}).status_code == 400
     assert client.post("/api/settings", json={"openalex_api_key": ""}).json() == {"openalex_key_set": False}
     assert client.post("/api/settings", json={"openalex_api_key": "x"}, headers={"origin": "http://evil.example"}).status_code == 403
-    assert "Search settings" in client.get("/research").text
+    assert "OpenAlex settings" in client.get("/research").text
 
 
 def test_search_sends_the_key_as_a_header_and_explains_a_used_up_allowance(monkeypatch, tmp_path):
