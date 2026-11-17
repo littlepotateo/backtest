@@ -2,6 +2,7 @@
 async function reloadLibrary() {
   const r = await fetch('/research/library');
   if (r.ok) $id('library').innerHTML = await r.text();
+  else toast(`The library could not be refreshed (the server answered ${r.status}). If this is a "Not Found", the server is older than this page: restart it with start.sh. [BT-HTTP-${r.status}]`, 'bad', 0);
 }
 
 async function reloadRequests() {
@@ -10,7 +11,7 @@ async function reloadRequests() {
     const html = await r.text();
     $id('requests').innerHTML = html;
     $id('requests-box').hidden = !html.trim();
-  }
+  } else toast(`The search requests could not be refreshed (the server answered ${r.status}). Restart the server with start.sh. [BT-HTTP-${r.status}]`, 'bad', 0);
 }
 
 async function copyText(text) {
@@ -24,7 +25,7 @@ function showUploadResults(results) {
     const line = x.ok
       ? el('div', { class: 'status ' + (x.warning ? 'warn' : 'ok') }, el('span', { class: 'dot', text: x.warning ? '!' : '✓' }),
           `${x.file}: added as “${x.title}”${x.year ? ' (' + x.year + ')' : ''}, ${x.pages} pages${x.has_abstract ? '' : ', no abstract found'}.${x.warning ? ' ' + x.warning : ''}`)
-      : el('div', { class: 'status bad' }, el('span', { class: 'dot', text: '✕' }), `${x.file}: ${x.error}`);
+      : el('div', { class: 'status bad' }, el('span', { class: 'dot', text: '✕' }), `${x.file}: ${x.error}${x.code ? ` [${x.code}]` : ''}`);
     box.append(el('p', { class: 'small' }, line));
   });
 }

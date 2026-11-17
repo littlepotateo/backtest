@@ -5,13 +5,16 @@ from __future__ import annotations
 import io
 import re
 
+from backtester.errors import CodedError
+
 MAX_BYTES = 60 * 1024 * 1024
 MAX_PAGES = 60
 MAX_CHARS = 600_000
 
 
-class PaperError(ValueError):
+class PaperError(CodedError):
     """A paper could not be read. The message says why."""
+    code = "BT-PDF-000"
 
 
 def _guess_title(meta_title: str | None, first_page: str, filename: str) -> str:
@@ -43,21 +46,21 @@ def _guess_abstract(text: str) -> str:
 def read_pdf(data: bytes, filename: str = "paper.pdf") -> dict:
     """Returns {title, authors, year, doi, abstract, pages, text, warning}."""
     if len(data) > MAX_BYTES:
-        raise PaperError(f"{filename} is larger than {MAX_BYTES // 1024 // 1024} MB.")
+        raise PaperError(f"{filename} is larger than {MAX_BYTES // 1024 // 1024} MB.", "BT-PDF-001")
     if not data.startswith(b"%PDF-"):
-        raise PaperError(f"{filename} is not a PDF file.")
+        raise PaperError(f"{filename} is not a PDF file.", "BT-PDF-002")
     try:
         from pypdf import PdfReader
     except ImportError:
         raise PaperError("The PDF reader (pypdf) is not installed, so papers cannot be read yet. Close the dashboard and start it "
-                         "again with start.sh (Mac: Start Backtester.command, Windows: start.bat), which installs it.")
+                         "again with start.sh (Mac: Start Backtester.command, Windows: start.bat), which installs it.", "BT-PDF-003")
     try:
         reader = PdfReader(io.BytesIO(data))
         if reader.is_encrypted:
             try:
                 reader.decrypt("")
             except Exception:
-                raise PaperError(f"{filename} is password-protected.")
+                raise PaperError(f"{filename} is password-protected.", "BT-PDF-004")
         pages = len(reader.pages)
         chunks = []
         for i in range(min(pages, MAX_PAGES)):
@@ -66,7 +69,7 @@ def read_pdf(data: bytes, filename: str = "paper.pdf") -> dict:
     except PaperError:
         raise
     except Exception as e:
-        raise PaperError(f"{filename} could not be read as a PDF ({type(e).__name__}).")
+        raise PaperError(f"{filename} could not be read as a PDF ({type(e).__name__}).", "BT-PDF-005")
     text = "\n\n".join(chunks)[:MAX_CHARS]
     first = chunks[0] if chunks else ""
     year = None

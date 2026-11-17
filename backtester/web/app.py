@@ -19,6 +19,7 @@ from backtester.analysis.findings import ALL_TESTS, CHEAP_TESTS
 from backtester.research import Library
 from backtester.research.library import STATUSES
 from backtester.research.requests import Requests, instruction
+from backtester.version import server_version
 from backtester.data import service
 from backtester.data.cache import Cache
 from backtester.web import data as D
@@ -64,6 +65,7 @@ def create_app(root: str | Path | None = None) -> FastAPI:
         except OSError:
             return f"/static/{name}"
     templates.env.globals["static"] = static
+    templates.env.globals["server_version"] = server_version()
     templates.env.globals["missing_packages"] = diagnostics.missing_packages()
     jobs = Jobs(root, runs_dir, cache_dir)
     tasks = Tasks()
@@ -76,7 +78,8 @@ def create_app(root: str | Path | None = None) -> FastAPI:
         if request.method == "POST":
             origin = request.headers.get("origin")
             if origin and origin.split("://", 1)[-1] != request.headers.get("host"):
-                return JSONResponse({"error": "cross-site request refused"}, status_code=403)
+                return JSONResponse({"error": "This request came from a different website or address than the dashboard, so it was refused. Open the dashboard at the address "
+                                              "shown when it started and use that page.", "code": "BT-HTTP-403"}, status_code=403)
         return await call_next(request)
 
     @app.get("/static/plotly.min.js", include_in_schema=False)

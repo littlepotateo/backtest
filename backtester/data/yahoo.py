@@ -19,6 +19,7 @@ import urllib.request
 import pandas as pd
 
 from backtester.data.cache import normalise_bars, to_utc
+from backtester.errors import CodedError
 
 _URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?{query}"
 _INTERVALS = {"1m": "1m", "2m": "2m", "5m": "5m", "15m": "15m", "30m": "30m",
@@ -27,8 +28,9 @@ _INTERVALS = {"1m": "1m", "2m": "2m", "5m": "5m", "15m": "15m", "30m": "30m",
 INTRADAY_LIMIT_DAYS = {"1m": 7, "2m": 59, "5m": 59, "15m": 59, "30m": 59, "1h": 729}
 
 
-class DataError(ValueError):
+class DataError(CodedError):
     """A data download or import failed. The message says why and what to try."""
+    code = "BT-DATA-000"
 
 
 def ssl_context() -> ssl.SSLContext:
@@ -46,30 +48,30 @@ def explain_network_error(e: Exception, what: str = "Yahoo Finance") -> DataErro
     text = str(reason)
     if isinstance(e, urllib.error.HTTPError):
         if e.code == 404:
-            return DataError(f"{what} has no data for that symbol (HTTP 404). Check the ticker; index symbols start with ^.")
+            return DataError(f"{what} has no data for that symbol (HTTP 404). Check the ticker; index symbols start with ^.", "BT-NET-404")
         if e.code == 429:
-            return DataError(f"{what} is limiting requests (HTTP 429). Wait a minute and try again.")
+            return DataError(f"{what} is limiting requests (HTTP 429). Wait a minute and try again.", "BT-NET-429")
         if e.code in (400, 422):
-            return DataError(f"{what} rejected the request (HTTP {e.code}). For intraday bars it only keeps recent days.")
-        return DataError(f"{what} returned HTTP {e.code}.")
+            return DataError(f"{what} rejected the request (HTTP {e.code}). For intraday bars it only keeps recent days.", "BT-NET-400")
+        return DataError(f"{what} returned HTTP {e.code}.", "BT-NET-500")
     if isinstance(reason, ssl.SSLCertVerificationError) or "CERTIFICATE_VERIFY_FAILED" in text:
         return DataError("The secure connection could not be verified (certificate error). On a Mac with Python from python.org, "
                          "run the 'Install Certificates.command' file in /Applications/Python 3.x/, or run "
-                         "`pip install --upgrade certifi`. A company network or VPN that inspects traffic can also cause this.")
+                         "`pip install --upgrade certifi`. A company network or VPN that inspects traffic can also cause this.", "BT-NET-002")
     if isinstance(reason, (socket.timeout, TimeoutError)) or "timed out" in text:
-        return DataError(f"{what} did not answer in time. Check the internet connection, VPN or firewall, then try again.")
+        return DataError(f"{what} did not answer in time. Check the internet connection, VPN or firewall, then try again.", "BT-NET-003")
     if isinstance(reason, socket.gaierror) or "Name or service not known" in text or "nodename nor servname" in text:
-        return DataError(f"Could not find {what} on the network. Check that this computer is online.")
-    return DataError(f"Could not reach {what}: {text}")
+        return DataError(f"Could not find {what} on the network. Check that this computer is online.", "BT-NET-004")
+    return DataError(f"Could not reach {what}: {text}", "BT-NET-001")
 
 
 def parse_yahoo_chart(payload: dict, allow_nonpositive: bool = False) -> pd.DataFrame:
     chart = payload.get("chart", {})
     if chart.get("error"):
-        raise DataError(f"Yahoo error: {chart['error'].get('description') or chart['error']}")
+        raise DataError(f"Yahoo error: {chart['error'].get('description') or chart['error']}", "BT-NET-006")
     result = (chart.get("result") or [None])[0]
     if not result or not result.get("timestamp"):
-        raise DataError("Yahoo returned no bars for that symbol and period.")
+        raise DataError("Yahoo returned no bars for that symbol and period.", "BT-DATA-001")
     quote = result["indicators"]["quote"][0]
     df = pd.DataFrame({k: quote[k] for k in ("open", "high", "low", "close", "volume")},
                       index=pd.to_datetime(result["timestamp"], unit="s", utc=True))
@@ -78,14 +80,14 @@ def parse_yahoo_chart(payload: dict, allow_nonpositive: bool = False) -> pd.Data
         df["adj_factor"] = pd.Series(adj[0]["adjclose"], index=df.index) / df["close"]
     df = df.dropna(subset=["open", "high", "low", "close"])
     if df.empty:
-        raise DataError("Yahoo returned only empty bars for that symbol and period.")
+        raise DataError("Yahoo returned only empty bars for that symbol and period.", "BT-DATA-001")
     df["volume"] = df["volume"].fillna(0)
     if "adj_factor" in df:
         df["adj_factor"] = df["adj_factor"].fillna(1.0)
     try:
         return normalise_bars(df, allow_nonpositive)
     except ValueError as e:
-        raise DataError(f"The downloaded data failed validation: {e}")
+        raise DataError(f"The downloaded data failed validation: {e}", "BT-DATA-002")
 
 
 def clamp_start(interval: str, start):
@@ -103,10 +105,10 @@ def clamp_start(interval: str, start):
 def fetch_yahoo(symbol: str, interval: str = "1d", start=None, end=None,
                 timeout: float = 30, allow_nonpositive: bool = False) -> pd.DataFrame:
     if interval not in _INTERVALS:
-        raise DataError(f"Yahoo does not offer {interval} bars. Choose one of: {', '.join(_INTERVALS)}.")
+        raise DataError(f"Yahoo does not offer {interval} bars. Choose one of: {', '.join(_INTERVALS)}.", "BT-DATA-003")
     symbol = (symbol or "").strip()
     if not symbol:
-        raise DataError("Enter a symbol, for example SPY.")
+        raise DataError("Enter a symbol, for example SPY.", "BT-DATA-004")
     start_ts = int(to_utc(start or "1990-01-01").timestamp())
     end_ts = int((to_utc(end).normalize() + pd.Timedelta(days=1)).timestamp()) if end \
         else int(pd.Timestamp.now(tz="UTC").timestamp())
@@ -120,5 +122,5 @@ def fetch_yahoo(symbol: str, interval: str = "1d", start=None, end=None,
     except (urllib.error.URLError, socket.timeout, TimeoutError, ssl.SSLError, ConnectionError) as e:
         raise explain_network_error(e)
     except json.JSONDecodeError:
-        raise DataError("Yahoo sent a reply that could not be read. Try again in a minute.")
+        raise DataError("Yahoo sent a reply that could not be read. Try again in a minute.", "BT-NET-005")
     return parse_yahoo_chart(payload, allow_nonpositive)

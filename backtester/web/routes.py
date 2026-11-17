@@ -14,8 +14,12 @@ from backtester.data import service
 from backtester.data.cache import INTERVAL_SECONDS, Cache
 from backtester.data.yahoo import _INTERVALS, DataError
 from backtester.research import Library
+from backtester.errors import CodedError
 from backtester.research.ingest import PaperError, read_pdf
-from backtester.research.requests import RequestError, Requests
+from backtester.research.requests import Requests
+from backtester.version import server_version
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.exception_handlers import http_exception_handler as default_http_handler
 from backtester.research.search import SearchError, search_papers
 from backtester.web import data as D
 from backtester.web import strategies as S
@@ -24,23 +28,24 @@ DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 PAPER_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,120}$")
 
 
-def fail(message: str, status: int = 400) -> JSONResponse:
-    return JSONResponse({"error": message}, status_code=status)
+def fail(message: str, status: int = 400, code: str | None = None) -> JSONResponse:
+    """An error answer: a plain message plus a short code the user can quote (see docs/error-codes.md)."""
+    return JSONResponse({"error": message, "code": code or f"BT-HTTP-{status}"}, status_code=status)
 
 
 async def body(request: Request) -> dict:
     try:
         data = await request.json()
     except Exception:
-        raise DataError("The request was not understood.")
+        raise DataError("The request was not understood.", "BT-HTTP-400")
     if not isinstance(data, dict):
-        raise DataError("The request was not understood.")
+        raise DataError("The request was not understood.", "BT-HTTP-400")
     return data
 
 
 def check_interval(interval: str) -> str:
     if interval not in _INTERVALS or interval not in INTERVAL_SECONDS:
-        raise DataError(f"Bar size must be one of: {', '.join(_INTERVALS)}.")
+        raise DataError(f"Bar size must be one of: {', '.join(_INTERVALS)}.", "BT-DATA-003")
     return interval
 
 
@@ -49,7 +54,7 @@ def check_date(value, name: str = "start") -> str | None:
     if not value:
         return None
     if not DATE.match(value):
-        raise DataError(f"The {name} date must look like 2005-01-31.")
+        raise DataError(f"The {name} date must look like 2005-01-31.", "BT-DATA-010")
     return value
 
 
@@ -66,17 +71,23 @@ def register(app: FastAPI, ctx) -> None:
         return fail(f"Something went wrong inside the dashboard ({type(e).__name__}). The terminal window running it has the details; "
                     f"if a package is missing, restart with start.sh.", 500)
 
-    @app.exception_handler(DataError)
-    async def data_error(_: Request, e: DataError):
-        return fail(str(e))
+    @app.exception_handler(StarletteHTTPException)
+    async def http_error(request: Request, e: StarletteHTTPException):
+        """Plain 'Not Found' / 'Method Not Allowed' answers become explanations with a code."""
+        if not request.url.path.startswith("/api/"):
+            return await default_http_handler(request, e)
+        if e.status_code == 404 and e.detail in ("Not Found", None, ""):
+            return JSONResponse({"error": f"This dashboard server has no “{request.method} {request.url.path}” feature. The server is most likely "
+                                           f"running an older version of the program than this page. Close it and start it again with start.sh "
+                                           f"(Mac: Start Backtester.command, Windows: start.bat). Server version: {server_version()}.",
+                                 "code": "BT-HTTP-404", "version": server_version()}, status_code=404)
+        if e.status_code == 405:
+            return fail(f"“{request.url.path}” does not accept {request.method} requests (the page and the server may be different versions).", 405)
+        return fail(str(e.detail), e.status_code)
 
-    @app.exception_handler(PaperError)
-    async def paper_error(_: Request, e: PaperError):
-        return fail(str(e))
-
-    @app.exception_handler(SearchError)
-    async def search_error(_: Request, e: SearchError):
-        return fail(str(e))
+    @app.exception_handler(CodedError)
+    async def coded_error(_: Request, e: CodedError):
+        return fail(str(e), 400, e.code)
 
     # --- tasks ---------------------------------------------------------------------------
     @app.get("/api/tasks/{task_id}")
@@ -119,7 +130,7 @@ def register(app: FastAPI, ctx) -> None:
                     log(f"{sym}: FAILED. {e}")
                     failed.append([sym, str(e)])
             if failed and not done:
-                raise DataError("; ".join(f"{s}: {m}" for s, m in failed))
+                raise DataError("; ".join(f"{s}: {m}" for s, m in failed), "BT-DATA-011")
             log(f"Finished: {len(done)} downloaded" + (f", {len(failed)} failed." if failed else "."))
             return {"done": done, "failed": failed}
         title = "Download " + ", ".join(s for s, _, _ in items[:6]) + ("…" if len(items) > 6 else "")
@@ -140,9 +151,9 @@ def register(app: FastAPI, ctx) -> None:
         form = await request.form()
         files = [(f.filename, await f.read()) for f in form.getlist("files") if getattr(f, "filename", "")]
         if not files:
-            raise DataError("Drop at least one .csv or .json price file.")
+            raise DataError("Drop at least one .csv or .json price file.", "BT-DATA-007")
         if sum(len(c) for _, c in files) > 200 * 1024 * 1024:
-            raise DataError("Those files are too large (limit 200 MB in total).")
+            raise DataError("Those files are too large (limit 200 MB in total).", "BT-DATA-012")
         symbol = (form.get("symbol") or "").strip() or None
         interval = (form.get("interval") or "").strip() or None
         if symbol:
@@ -159,7 +170,7 @@ def register(app: FastAPI, ctx) -> None:
                     log(f"{name}: FAILED. {e}")
                     failed.append([name, str(e)])
             if failed and not done:
-                raise DataError("; ".join(f"{n}: {m}" for n, m in failed))
+                raise DataError("; ".join(f"{n}: {m}" for n, m in failed), "BT-DATA-011")
             return {"done": done, "failed": failed}
         return {"task_id": tasks.submit(f"Import {len(files)} file(s)", run)}
 
@@ -176,7 +187,7 @@ def register(app: FastAPI, ctx) -> None:
             for c in results:
                 log(f"{'ok  ' if c['ok'] else 'FAIL'} {c['name']}: {c['detail']}" + (f"  → {c['hint']}" if not c["ok"] and c["hint"] else ""))
             if not all(c["ok"] for c in results):
-                raise DataError("Some checks failed. See the lines above.")
+                raise DataError("Some checks failed. See the lines above.", "BT-DATA-013")
             return {"checks": results}
         return {"task_id": tasks.submit("Check my setup", run)}
 
@@ -214,7 +225,7 @@ def register(app: FastAPI, ctx) -> None:
         b = await body(request)
         key = str(b.get("openalex_api_key", "")).strip()
         if len(key) > 200 or any(c.isspace() for c in key):
-            raise DataError("That does not look like a key.")
+            raise DataError("That does not look like a key.", "BT-SET-001")
         settings.set_value("openalex_api_key", key)
         return {"openalex_key_set": settings.is_set("openalex_api_key")}
 
@@ -239,10 +250,7 @@ def register(app: FastAPI, ctx) -> None:
     @app.post("/api/requests")
     async def request_create(request: Request):
         b = await body(request)
-        try:
-            return Requests(ctx.lib_dir).create(str(b.get("query", "")), str(b.get("notes", "")))
-        except RequestError as e:
-            raise DataError(str(e))
+        return Requests(ctx.lib_dir).create(str(b.get("query", "")), str(b.get("notes", "")))
 
     @app.post("/api/requests/{rid}/delete")
     def request_delete(rid: str):
@@ -263,7 +271,7 @@ def register(app: FastAPI, ctx) -> None:
                 continue
             try:
                 if not name.lower().endswith(".pdf"):
-                    raise PaperError(f"{name} is not a PDF. Drop PDF files here.")
+                    raise PaperError(f"{name} is not a PDF. Drop PDF files here.", "BT-PDF-006")
                 data = await f.read()
                 info = read_pdf(data, name)
                 pid = lib.add(info["title"], authors=info["authors"], year=info["year"], doi=info["doi"],
@@ -272,9 +280,9 @@ def register(app: FastAPI, ctx) -> None:
                 out.append({"file": name, "ok": True, "id": pid, "title": info["title"], "pages": info["pages"],
                             "year": info["year"], "has_abstract": bool(info["abstract"]), "warning": info["warning"]})
             except PaperError as e:
-                out.append({"file": name, "ok": False, "error": str(e)})
+                out.append({"file": name, "ok": False, "error": str(e), "code": e.code})
         if not out:
-            raise PaperError("Drop at least one PDF file.")
+            raise PaperError("Drop at least one PDF file.", "BT-PDF-007")
         return {"results": out}
 
     @app.post("/api/papers/{pid}/update")

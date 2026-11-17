@@ -40,11 +40,11 @@ class Tasks:
                     task.update(status="done", result=result)
             except DataError as e:                       # an expected, explainable failure: shown as the task's error
                 with self._lock:
-                    task.update(status="failed", error=str(e))
+                    task.update(status="failed", error=str(e), code=e.code)
             except Exception as e:                       # a bug: keep the detail for the log
                 log("Unexpected error:\n" + traceback.format_exc(limit=6))
                 with self._lock:
-                    task.update(status="failed", error=f"Unexpected error: {type(e).__name__}: {e}")
+                    task.update(status="failed", error=f"Unexpected error: {type(e).__name__}: {e}", code="BT-TASK-500")
             finally:
                 with self._lock:
                     task["finished"] = time.time()
