@@ -294,3 +294,34 @@ def test_option_pricing_sensitivity_is_reported(bars):
     assert cases["volatility level +10%"] > cases["as configured"] > cases["volatility level -15%"]   # sellers earn more
     assert any(f["test"] == "option pricing" for f in v["flags"])
     assert "skipped" in v["overfitting"]["permutation"]
+
+
+def test_short_put_risk_is_aggregated_across_underlyings(bars):
+    class MultiUnderlyingPuts(Strategy):
+        universe = ["A", "B"]
+        options_on = ["A", "B"]
+        params = {"symbols": ["A", "B"]}
+
+        def init(self, ctx):
+            self.placed = False
+
+        def on_bar(self, ctx):
+            if not self.placed:
+                for symbol in self.params["symbols"]:
+                    ctx.options.order(OptionContract(symbol, JAN, 1000.0, "P"), -1)
+                self.placed = True
+
+    data = {"A": bars([1000, 1000]), "B": bars([1000, 1000])}
+    levels = {"A": level(), "B": level()}
+    params = {"A": FLAT, "B": FLAT}
+    r = Runner(
+        MultiUnderlyingPuts,
+        RunConfig(costs=CostModel.zero(), option_fee_per_contract=0.0,
+                  option_fee_min_per_order=0.0),
+        data=data, option_levels=levels, option_params=params,
+    )
+
+    assert len(r.run({"symbols": ["A"]}).fills) == 1
+    both = r.run({"symbols": ["A", "B"]})
+    assert both.fills.empty
+    assert both.meta["warnings"]["option_orders_rejected"] == 1

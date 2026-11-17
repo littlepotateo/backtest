@@ -13,13 +13,20 @@ Explanations and papers (stage 6): `bt validate` writes `explanation.md`; `bt ex
 Dashboard (stage 7): `bt serve` opens a local web app with the run list, run pages (charts, monthly returns, validation, explanation, 3D option surfaces), comparison of two runs, the research library, and re-runs with changed settings.
 All seven stages of the original plan are built.
 
-## Setup
+## First run
+
+Run this once from the repository root. A fresh clone does not include `.venv`;
+this creates it and installs the `bt` command and its dependencies.
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 ```
 
-## Use
+## Download data and run a backtest
+
+Run these from the repository root, after setup. The first command creates
+`data/cache/`; the validation command creates a results folder under `runs/`.
+Those generated folders are ignored by Git, so they start empty in a fresh clone.
 
 ```bash
 .venv/bin/bt fetch-yahoo SPY --start 2005-01-01
@@ -45,7 +52,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/bt serve
 ```
 
-Then open http://127.0.0.1:8765 (use `--port` to change it). The server listens on this computer only and refuses form posts from other websites.
+Then open http://127.0.0.1:8000 (use `--port` to change it). The server listens on this computer only and refuses form posts from other websites.
 
 Other commands: `bt data`, `bt check`, `bt optimize`, `bt ingest-ibkr`, `bt compare-ibkr`, `bt import-csv`. Run `bt <command> --help` for options.
 

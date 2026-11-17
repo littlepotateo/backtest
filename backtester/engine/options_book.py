@@ -78,21 +78,21 @@ class OptionBook:
         (short calls need shares or long calls behind them).
         Rule 2: the account's value at expiry must stay at or above zero at every
         underlying price from 0 to 3x the current price."""
-        for sym in {c.underlying for c in positions}:
+        worst_total = cash
+        symbols = {s for s, q in shares.items() if q}
+        symbols.update(c.underlying for c, q in positions.items() if q)
+        for sym in symbols:
             legs = [(c, q) for c, q in positions.items() if c.underlying == sym and q]
-            if not legs:
-                continue
             spot = self.sim.last_close[sym]
             stock = shares.get(sym, 0.0)
             slope = stock + MULTIPLIER * sum(q for c, q in legs if c.right == "C")
             if slope < -1e-9:
-                return f"uncovered short call on {sym}"
+                return f"uncovered short call or stock on {sym}"
             grid = np.unique(np.concatenate([[0.0], [c.strike for c, _ in legs], np.linspace(0, 3 * spot, 61)]))
-            others = sum(q * self.sim.last_close[s] for s, q in shares.items() if s != sym and q)
-            worst = min(cash + others + stock * s + MULTIPLIER * sum(q * c.intrinsic(s) for c, q in legs)
-                        for s in grid)
-            if worst < -1e-6:
-                return f"position on {sym} could lose more than the account holds"
+            worst_total += min(stock * s + MULTIPLIER * sum(q * c.intrinsic(s) for c, q in legs)
+                               for s in grid)
+        if worst_total < -1e-6:
+            return "combined positions could lose more than the account holds"
         return None
 
     def fill_pending(self) -> None:
