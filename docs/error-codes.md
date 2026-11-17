@@ -70,3 +70,10 @@ Codes are stable: a code never changes meaning. The test suite checks that every
 | BT-NET-404 | The service has no data for that symbol. | Check the ticker; index symbols start with `^`. |
 | BT-NET-429 | The service is limiting requests. | Wait a minute and try again. |
 | BT-NET-500 | The service returned another HTTP error. | Try again later. |
+
+## Project files (`BT-LIB`)
+
+| Code | Meaning | What to do |
+|---|---|---|
+| BT-LIB-000 | The paper library files cannot be read (no more specific code). | Read the message. |
+| BT-LIB-001 | `research/library/index.json` is damaged and cannot be read. | Open it in a text editor to fix it, or rename it to start an empty library; saved PDFs are kept. |

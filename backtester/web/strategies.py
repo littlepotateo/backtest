@@ -14,15 +14,30 @@ RATE = "^IRX"
 def _literal(node: ast.AST):
     try:
         return ast.literal_eval(node)
-    except (ValueError, SyntaxError):
+    except Exception:                      # not a plain literal (or too odd to read): treated as not set
         return None
+
+
+def _symbols(value) -> list[str]:
+    """A list of ticker strings from whatever the file declared (a single string counts as one ticker)."""
+    if isinstance(value, str):
+        value = [value]
+    return [s for s in value if isinstance(s, str)] if isinstance(value, (list, tuple)) else []
+
+
+def _text(value, default: str) -> str:
+    return value if isinstance(value, str) and value else default
+
+
+def _dict(value) -> dict:
+    return value if isinstance(value, dict) else {}
 
 
 def describe_file(path: Path, root: Path) -> list[dict]:
     """One entry per Strategy subclass in the file."""
     try:
         tree = ast.parse(path.read_text())
-    except (SyntaxError, OSError, UnicodeDecodeError):
+    except Exception:                      # syntax errors, null bytes, bad encodings, unreadable files: not a strategy we can list
         return []
     out = []
     for node in tree.body:
@@ -38,9 +53,9 @@ def describe_file(path: Path, root: Path) -> list[dict]:
         doc = (ast.get_docstring(node) or ast.get_docstring(tree) or "").strip()
         first = doc.split("\n\n")[0].replace("\n", " ") if doc else ""
         out.append({"path": path.relative_to(root).as_posix(), "name": node.name, "description": first,
-                    "universe": attrs.get("universe") or [], "interval": attrs.get("interval") or "1d",
-                    "params": attrs.get("params") or {}, "param_grid": attrs.get("param_grid") or {},
-                    "options_on": attrs.get("options_on") or []})
+                    "universe": _symbols(attrs.get("universe")), "interval": _text(attrs.get("interval"), "1d"),
+                    "params": _dict(attrs.get("params")), "param_grid": _dict(attrs.get("param_grid")),
+                    "options_on": _symbols(attrs.get("options_on"))})
     return out
 
 

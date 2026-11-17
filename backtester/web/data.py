@@ -67,7 +67,14 @@ def summarise(d: Path) -> dict | None:
 def list_runs(runs_dir: Path) -> list[dict]:
     if not runs_dir.exists():
         return []
-    out = [summarise(d) for d in sorted(runs_dir.iterdir(), reverse=True) if d.is_dir() and SAFE_ID.match(d.name)]
+    out = []
+    for d in sorted(runs_dir.iterdir(), reverse=True):
+        if not (d.is_dir() and SAFE_ID.match(d.name)):
+            continue
+        try:
+            out.append(summarise(d))
+        except Exception:                  # an unfinished or damaged run folder is left out of the list
+            continue
     return [r for r in out if r]
 
 

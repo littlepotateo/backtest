@@ -14,6 +14,7 @@ from datetime import date
 from pathlib import Path
 
 from backtester import paths
+from backtester.errors import CodedError
 
 STATUSES = ("candidate", "replicating", "replicated", "partly replicated", "not replicated", "rejected")
 
@@ -30,16 +31,40 @@ def slug(title: str, year: int | None = None) -> str:
     return f"{base}-{year}" if year else base
 
 
+class LibraryError(CodedError):
+    """The library files cannot be read."""
+    code = "BT-LIB-000"
+
+
 class Library:
     def __init__(self, root: str | Path | None = None):
         self.root = Path(root or paths.LIBRARY)
         self.index_path = self.root / "index.json"
 
     def _read(self) -> dict:
-        data = json.loads(self.index_path.read_text()) if self.index_path.exists() else {"papers": {}}
+        data = {"papers": {}}
+        if self.index_path.exists():
+            try:
+                data = json.loads(self.index_path.read_text())
+            except (ValueError, OSError) as e:
+                raise LibraryError(f"The paper library file {self.index_path} cannot be read ({type(e).__name__}). "
+                                   f"Open it in a text editor to fix it, or rename it to start an empty library (your PDFs are not lost).",
+                                   "BT-LIB-001")
+        if not isinstance(data, dict) or not isinstance(data.get("papers"), dict):
+            data = {"papers": {}}
+        data["papers"] = {pid: self._complete(pid, p) for pid, p in data["papers"].items() if isinstance(p, dict)}
         if any(not VALID_ID.match(pid) for pid in data["papers"]):
             self._repair(data)
         return data
+
+    @staticmethod
+    def _complete(pid: str, p: dict) -> dict:
+        """Fill in any field an older or hand-edited entry lacks, so every page can rely on them."""
+        base = {"id": pid, "title": pid, "authors": "", "year": None, "venue": "", "url": "", "consensus_id": "", "finding": "",
+                "claims": [], "claims_from_full_text": False, "status": "candidate", "strategies": [], "runs": [], "added": ""}
+        out = {**base, **p}
+        out["title"], out["status"] = str(out["title"]), str(out["status"])
+        return out
 
     def _repair(self, data: dict) -> None:
         """Papers saved by an older version could get an unusable id (empty, or starting with '-'), which made their

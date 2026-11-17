@@ -109,10 +109,23 @@ class Cache:
 
     def meta(self, symbol: str, interval: str) -> dict:
         path = self._path(symbol, interval).with_suffix(".json")
-        return json.loads(path.read_text()) if path.exists() else {}
+        try:
+            return json.loads(path.read_text()) if path.exists() else {}
+        except (ValueError, OSError):
+            return {}
 
     def list(self) -> list[dict]:
-        return [json.loads(p.read_text()) for p in sorted(self.root.glob("*/*.json"))]
+        """Metadata of every cached dataset. A file that cannot be read, or that lacks the basic fields, is skipped
+        (one damaged file must not take the whole dashboard down)."""
+        out = []
+        for p in sorted(self.root.glob("*/*.json")):
+            try:
+                m = json.loads(p.read_text())
+            except (ValueError, OSError):
+                continue
+            if isinstance(m, dict) and all(isinstance(m.get(k), str) and m.get(k) for k in ("symbol", "interval", "start", "end")):
+                out.append(m)
+        return out
 
 
 def from_csv(path: str | Path) -> pd.DataFrame:
