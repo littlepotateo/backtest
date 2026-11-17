@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from backtester import paths
 from backtester.analysis.findings import ALL_TESTS, CHEAP_TESTS
 from backtester.research import Library
 from backtester.web import data as D
@@ -30,8 +31,8 @@ def num(x, digits: int = 2):
     return "n/a" if x is None else f"{x:,.{digits}f}"
 
 
-def create_app(root: str | Path = ".") -> FastAPI:
-    root = Path(root).resolve()
+def create_app(root: str | Path | None = None) -> FastAPI:
+    root = Path(root or paths.ROOT).resolve()
     runs_dir, cache_dir, lib_dir = root / "runs", root / "data" / "cache", root / "research" / "library"
     app = FastAPI(title="Strategy backtester", docs_url=None, redoc_url=None)
     templates = Jinja2Templates(directory=str(HERE / "templates"))

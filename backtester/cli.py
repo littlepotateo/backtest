@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from backtester import paths
 from backtester.analysis.metrics import compute_metrics
 from backtester.data.cache import Cache, from_csv, to_utc
 from backtester.data.ibkr import parse_ibkr_history
@@ -20,8 +21,25 @@ from backtester.engine.result import RunConfig
 from backtester.engine.strategy import Strategy
 
 
+def resolve_strategy(path: str | Path) -> Path:
+    """A strategy file given relative to the current folder or to the project folder."""
+    p = Path(path)
+    if not p.exists() and (paths.ROOT / p).exists():
+        p = paths.ROOT / p
+    return p
+
+
+def strategy_label(path: str | Path) -> str:
+    """The path as saved with a run: relative to the project folder when inside it."""
+    p = resolve_strategy(path).resolve()
+    try:
+        return str(p.relative_to(paths.ROOT))
+    except ValueError:
+        return str(p)
+
+
 def load_strategy_class(path: str | Path) -> type[Strategy]:
-    path = Path(path)
+    path = resolve_strategy(path)
     spec = importlib.util.spec_from_file_location(f"strategy_{path.stem}", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -106,22 +124,30 @@ def cmd_ingest_ibkr(args):
 
 
 def cmd_fetch_yahoo(args):
-    from backtester.data.yahoo import fetch_yahoo
-    bars = fetch_yahoo(args.symbol, args.interval, args.start, args.end)
-    saved = Cache(args.cache).save(args.symbol, args.interval, bars, source="yahoo",
-                                   adjusted="split-adjusted; adj_factor adds dividends")
-    print(f"{args.symbol.upper()} {args.interval}: {len(saved)} bars cached "
-          f"({saved.index[0].date()} to {saved.index[-1].date()})")
+    from backtester.data import service
+    from backtester.data.yahoo import DataError
+    cache = Cache(args.cache)
+    print(f"Saving to {cache.root}")
+    try:
+        service.fetch_symbol(cache, args.symbol, args.interval, args.start, log=print)
+    except DataError as e:
+        raise SystemExit(f"error: {e}")
 
 
 def cmd_fetch_rates(args):
-    from backtester.data.yahoo import fetch_yahoo
-    from backtester.engine.backend import RATE_SYMBOL
-    bars = fetch_yahoo(RATE_SYMBOL, "1d", args.start, None, allow_nonpositive=True)
-    saved = Cache(args.cache).save(RATE_SYMBOL, "1d", bars, source="yahoo", adjusted="not a price",
-                                   allow_nonpositive=True)
-    print(f"13-week Treasury bill yield: {len(saved)} days cached "
-          f"({saved.index[0].date()} to {saved.index[-1].date()}), latest {saved['close'].iloc[-1]:.2f}%")
+    from backtester.data import service
+    from backtester.data.yahoo import DataError
+    cache = Cache(args.cache)
+    print(f"Saving to {cache.root}")
+    try:
+        service.fetch_rates(cache, args.start, log=print)
+    except DataError as e:
+        raise SystemExit(f"error: {e}")
+
+
+def cmd_doctor(args):
+    from backtester.diagnostics import print_report
+    raise SystemExit(0 if print_report(Cache(args.cache)) else 1)
 
 
 def cmd_calibrate_options(args):
@@ -196,7 +222,7 @@ def _from(benchmark, start):
 
 def _save_run(args, result, metrics, bench_symbol, benchmark):
     result.meta["benchmark"] = bench_symbol if benchmark is not None else None
-    result.meta["strategy_file"] = str(args.strategy)
+    result.meta["strategy_file"] = strategy_label(args.strategy)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     out = result.save(Path(args.out) / f"{stamp}-{result.meta['strategy']}")
     (out / "metrics.json").write_text(json.dumps(metrics, indent=2))
@@ -215,7 +241,7 @@ def cmd_run(args):
 def cmd_optimize(args):
     from backtester.analysis.optimize import grid_search
     cls, _, runner, _, _ = _setup(args)
-    res = grid_search(runner, ledger=Path(args.strategy).with_suffix(".trials.jsonl"))
+    res = grid_search(runner, ledger=resolve_strategy(args.strategy).with_suffix(".trials.jsonl"))
     table = res["table"].sort_values("sharpe", ascending=False)
     print(f"{cls.__name__}: {len(table)} configurations\n")
     print(table.to_string(index=False, float_format=lambda x: f"{x:.3f}"))
@@ -335,7 +361,7 @@ def cmd_validate(args):
         regime_close = benchmark
     v = validate(runner, params, tests, benchmark_close=_from(benchmark, result.equity.index[0]),
                  regime_close=regime_close,
-                 ledger=Path(args.strategy).with_suffix(".trials.jsonl"), n_paths=args.paths,
+                 ledger=resolve_strategy(args.strategy).with_suffix(".trials.jsonl"), n_paths=args.paths,
                  synthetic_paths=args.synthetic or 200, seed=args.seed, risk_free_rate=args.risk_free,
                  wf_mode=args.walk_forward)
     out = _save_run(args, result, v["metrics"], bench_symbol, benchmark)
@@ -414,7 +440,7 @@ def cmd_compare_ibkr(args):
 
 def main(argv=None):
     p = argparse.ArgumentParser(prog="bt", description="Strategy backtester")
-    p.add_argument("--cache", default="data/cache", help="bar cache folder")
+    p.add_argument("--cache", default=paths.CACHE, help="bar cache folder (default: the project folder's data/cache)")
     sub = p.add_subparsers(dest="command", required=True)
 
     sub.add_parser("data", help="list cached bars").set_defaults(func=cmd_data)
@@ -438,7 +464,7 @@ def main(argv=None):
 
     s = sub.add_parser("calibrate-options", help="fit the volatility surface to a snapshot of option quotes")
     s.add_argument("file")
-    s.add_argument("--config", default="config/vol_surface.toml")
+    s.add_argument("--config", default=paths.SURFACE)
     s.add_argument("--dry-run", action="store_true")
     s.set_defaults(func=cmd_calibrate_options)
 
@@ -456,7 +482,7 @@ def main(argv=None):
         s.add_argument("--end")
         s.add_argument("--cash", type=float, default=100_000)
         s.add_argument("--param", action="append", metavar="NAME=VALUE")
-        s.add_argument("--costs", default="config/costs.toml")
+        s.add_argument("--costs", default=paths.COSTS)
         s.add_argument("--cost-multiplier", type=float, default=1.0)
         s.add_argument("--fill", choices=["next_open", "close"], default="next_open")
         s.add_argument("--max-leverage", type=float, default=1.0)
@@ -466,7 +492,7 @@ def main(argv=None):
         s.add_argument("--benchmark", help="symbol for buy-and-hold comparison (default: first in universe)")
         s.add_argument("--risk-free", type=float, default=0.0, help="annual risk-free rate, e.g. 0.04")
         s.add_argument("--backend", default="native")
-        s.add_argument("--out", default="runs")
+        s.add_argument("--out", default=paths.RUNS)
 
     s = sub.add_parser("run", help="run a backtest")
     run_options(s)
@@ -499,7 +525,7 @@ def main(argv=None):
     s.add_argument("action", choices=["add", "list", "status", "link", "compare"])
     s.add_argument("id", nargs="?", help="paper id (status, link, compare)")
     s.add_argument("value", nargs="?", help="status name (status) or run folder (link)")
-    s.add_argument("--library", default="research/library")
+    s.add_argument("--library", default=paths.LIBRARY)
     s.add_argument("--title")
     s.add_argument("--authors", default="")
     s.add_argument("--year", type=int)
@@ -511,10 +537,13 @@ def main(argv=None):
     s.add_argument("--full-text", action="store_true", help="claims were read from the full text, not the abstract")
     s.set_defaults(func=cmd_paper)
 
+    s = sub.add_parser("doctor", help="check the installation, folders and internet connection")
+    s.set_defaults(func=cmd_doctor)
+
     s = sub.add_parser("serve", help="start the local dashboard")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8000)
-    s.add_argument("--root", default=".", help="project folder holding runs/, data/ and research/")
+    s.add_argument("--root", default=paths.in_root("."), help="project folder holding runs/, data/ and research/")
     s.set_defaults(func=cmd_serve)
 
     s = sub.add_parser("compare-ibkr", help="compare an IBKR price-history sample with cached bars")

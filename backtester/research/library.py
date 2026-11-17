@@ -12,6 +12,8 @@ import re
 from datetime import date
 from pathlib import Path
 
+from backtester import paths
+
 STATUSES = ("candidate", "replicating", "replicated", "partly replicated", "not replicated", "rejected")
 
 
@@ -21,8 +23,8 @@ def slug(title: str, year: int | None = None) -> str:
 
 
 class Library:
-    def __init__(self, root: str | Path = "research/library"):
-        self.root = Path(root)
+    def __init__(self, root: str | Path | None = None):
+        self.root = Path(root or paths.LIBRARY)
         self.index_path = self.root / "index.json"
 
     def _read(self) -> dict:

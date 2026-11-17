@@ -18,6 +18,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from backtester import paths
+
 VOL_MIN, VOL_MAX = 0.05, 3.0
 VOL_INDEX = {"SPY": "^VIX", "QQQ": "^VXN", "IWM": "^RVX"}
 
@@ -35,8 +37,8 @@ class SurfaceParams:
     calibrated: bool = False   # True once fitted to a live chain
 
     @classmethod
-    def load(cls, symbol: str, path: str | Path = "config/vol_surface.toml") -> "SurfaceParams":
-        path = Path(path)
+    def load(cls, symbol: str, path: str | Path | None = None) -> "SurfaceParams":
+        path = Path(path or paths.SURFACE)
         if path.exists():
             raw = tomllib.loads(path.read_text()).get(symbol.upper())
             if raw:

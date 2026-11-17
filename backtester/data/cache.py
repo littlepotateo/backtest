@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from backtester import paths
+
 COLUMNS = ["open", "high", "low", "close", "volume", "adj_factor"]
 
 # Our bar-size names and the LEAN resolution each maps onto.
@@ -58,8 +60,8 @@ def normalise_bars(df: pd.DataFrame, allow_nonpositive: bool = False) -> pd.Data
 
 
 class Cache:
-    def __init__(self, root: str | Path = "data/cache"):
-        self.root = Path(root)
+    def __init__(self, root: str | Path | None = None):
+        self.root = Path(root or paths.CACHE)
 
     def _path(self, symbol: str, interval: str) -> Path:
         if interval not in INTERVAL_SECONDS:

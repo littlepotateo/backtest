@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 from scipy.optimize import least_squares
 
+from backtester import paths
 from backtester.options import pricing as bs
 from backtester.options.surface import SurfaceParams, VolSurface
 
@@ -71,9 +72,9 @@ def calibrate(snapshot: dict, level: float, rate: float, dividend_yield: float) 
             "caveat": "Fitted to one day's quotes; the same shape is applied to all of history."}
 
 
-def save_params(symbol: str, report: dict, path: str | Path = "config/vol_surface.toml") -> None:
+def save_params(symbol: str, report: dict, path: str | Path | None = None) -> None:
     """Write or replace the [SYMBOL] section of the surface config."""
-    path = Path(path)
+    path = Path(path or paths.SURFACE)
     text = path.read_text() if path.exists() else (
         "# Volatility-surface parameters per underlying, fitted by `bt calibrate-options`.\n")
     lines, skip = [], False
