@@ -115,3 +115,10 @@ pre.log.small { font-size: .78rem; max-height: 180px; overflow: auto; margin: 8p
 .help { background: color-mix(in srgb, var(--series-1) 7%, var(--surface-1)); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: .92rem; }
 fieldset { border: 1px solid var(--border); border-radius: 10px; margin: 12px 0; padding: 8px 14px 12px; }
 legend { color: var(--text-secondary); font-size: .85rem; padding: 0 6px; }
+
+/* paper search source chooser and request cards */
+.seg { border: 0; padding: 0; margin: 0 0 10px; display: flex; flex-direction: column; gap: 4px; }
+.seg label { cursor: pointer; }
+.instruction { white-space: pre-wrap; word-break: break-word; background: var(--surface-2, var(--surface-1)); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; user-select: all; }
+[hidden] { display: none !important; }

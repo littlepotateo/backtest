@@ -1,0 +1,22 @@
+{% for r in requests %}
+<div class="card request" data-id="{{ r.id }}">
+  <div class="row between">
+    <h3>{{ r.query }}</h3>
+    {% if r.status == 'done' %}<span class="status ok"><span class="dot">✓</span>Done</span>
+    {% else %}<span class="status warn"><span class="dot">…</span>Waiting for Claude</span>{% endif %}
+  </div>
+  {% if r.notes %}<p class="small muted">Guidance: {{ r.notes }}</p>{% endif %}
+  {% if r.status == 'done' %}
+    {% if r.summary %}<p class="small">{{ r.summary }}</p>{% endif %}
+    {% if r.found %}<p class="small">Saved to the library: {% for f in r.found %}<strong>{{ f.title }}</strong>{% if not loop.last %}; {% endif %}{% endfor %}</p>
+    {% else %}<p class="small muted">No papers were saved for this search.</p>{% endif %}
+  {% else %}
+    <p class="small">Paste this into Claude Code, then press “Check for results” here when it finishes.</p>
+    <pre class="small instruction">{{ r.instruction }}</pre>
+  {% endif %}
+  <div class="row">
+    {% if r.status != 'done' %}<button type="button" class="copy-prompt" data-prompt="{{ r.instruction }}">Copy instruction</button>{% endif %}
+    <button type="button" class="danger delete-request">{{ 'Remove' if r.status == 'done' else 'Cancel request' }}</button>
+  </div>
+</div>
+{% endfor %}

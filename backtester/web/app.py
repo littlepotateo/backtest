@@ -18,6 +18,7 @@ from backtester import paths
 from backtester.analysis.findings import ALL_TESTS, CHEAP_TESTS
 from backtester.research import Library
 from backtester.research.library import STATUSES
+from backtester.research.requests import Requests, instruction
 from backtester.data import service
 from backtester.data.cache import Cache
 from backtester.web import data as D
@@ -161,9 +162,20 @@ def create_app(root: str | Path | None = None) -> FastAPI:
                            "run_ids": [Path(x["run"]).name for x in p["runs"]]})
         return {"papers": papers, "statuses": STATUSES}
 
+    def requests_context() -> dict:
+        titles = {p["id"]: p["title"] for p in Library(lib_dir).list()}
+        reqs = [{**r, "instruction": instruction(r),
+                 "found": [{"id": pid, "title": titles[pid]} for pid in r["papers"] if pid in titles]}
+                for r in Requests(lib_dir).list()]
+        return {"requests": reqs}
+
     @app.get("/research", response_class=HTMLResponse)
     def research(request: Request):
-        return page(request, "research.html", **library_context())
+        return page(request, "research.html", **library_context(), **requests_context())
+
+    @app.get("/research/requests", response_class=HTMLResponse)
+    def research_requests(request: Request):
+        return templates.TemplateResponse(request, "_requests.html", requests_context())
 
     @app.get("/research/library", response_class=HTMLResponse)
     def research_library(request: Request):

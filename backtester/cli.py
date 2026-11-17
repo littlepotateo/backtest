@@ -387,12 +387,34 @@ def cmd_explain(args):
 
 def cmd_paper(args):
     from backtester.research import Library
-    lib = Library(args.library)
+    from backtester.research.requests import Requests
+    lib, reqs = Library(args.library), Requests(args.library)
     if args.action == "add":
+        if args.request:
+            try:
+                reqs.get(args.request)
+            except KeyError:
+                raise SystemExit(f"error: there is no search request {args.request}. List pending ones with: bt paper requests")
+        if not args.title:
+            raise SystemExit("error: --title is required")
         pid = lib.add(args.title, authors=args.authors, year=args.year, venue=args.venue, url=args.url,
                       consensus_id=args.consensus_id, finding=args.finding, claims=args.claim or None,
                       full_text=args.full_text)
+        if args.request:
+            reqs.attach_paper(args.request, pid)
         print(f"saved {pid}")
+    elif args.action == "requests":
+        pending = reqs.pending()
+        for r in pending:
+            print(f"{r['id']}  {r['query']}" + (f"  (guidance: {r['notes']})" if r["notes"] else ""))
+        if not pending:
+            print("No pending search requests.")
+    elif args.action == "request-done":
+        try:
+            r = reqs.complete(args.id, args.summary)
+        except KeyError:
+            raise SystemExit(f"error: there is no search request {args.id}")
+        print(f"request {r['id']} done with {len(r['papers'])} paper(s)")
     elif args.action == "list":
         for p in lib.list():
             print(f"{p['id']:<58}{p['status']:<18}{len(p['runs'])} run(s)  {p['title']}")
@@ -543,8 +565,8 @@ def main(argv=None):
     s.add_argument("run", help="run folder under runs/")
     s.set_defaults(func=cmd_explain)
 
-    s = sub.add_parser("paper", help="research-paper library: add, list, status, link, compare")
-    s.add_argument("action", choices=["add", "list", "status", "link", "compare"])
+    s = sub.add_parser("paper", help="research-paper library: add, list, status, link, compare, requests, request-done")
+    s.add_argument("action", choices=["add", "list", "status", "link", "compare", "requests", "request-done"])
     s.add_argument("id", nargs="?", help="paper id (status, link, compare)")
     s.add_argument("value", nargs="?", help="status name (status) or run folder (link)")
     s.add_argument("--library", default=paths.LIBRARY)
@@ -557,6 +579,8 @@ def main(argv=None):
     s.add_argument("--finding", default="")
     s.add_argument("--claim", action="append", help="a result the paper reports, as the paper states it")
     s.add_argument("--full-text", action="store_true", help="claims were read from the full text, not the abstract")
+    s.add_argument("--request", help="search request id (from the dashboard) this paper answers (add)")
+    s.add_argument("--summary", default="", help="what the search found, one or two sentences (request-done)")
     s.set_defaults(func=cmd_paper)
 
     s = sub.add_parser("doctor", help="check the installation, folders and internet connection")
