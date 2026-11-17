@@ -34,7 +34,7 @@ def rate_limit_message(e: urllib.error.HTTPError, has_key: bool) -> str:
         return "Your paper-search key has used up its allowance for now. Try again later."
     if "no API key" in said or "budget" in said.lower():
         return ("The free daily paper-search allowance for your network is used up (it resets at midnight UTC). "
-                "You can add a free key under Search settings to have your own allowance.")
+                "You can add a free key under OpenAlex settings, or switch to Consensus through Claude above.")
     return "The paper search service is busy (HTTP 429). Wait a minute and search again."
 
 
@@ -84,7 +84,7 @@ def search_papers(query: str, limit: int = 10) -> list[dict]:
         if e.code == 429:
             raise SearchError(rate_limit_message(e, bool(key)))
         if e.code in (401, 403) and key:
-            raise SearchError("The paper search service did not accept the saved key. Check it under Search settings.")
+            raise SearchError("The paper search service did not accept the saved key. Check it under OpenAlex settings.")
         raise SearchError(f"The paper search service returned HTTP {e.code}.")
     except (urllib.error.URLError, socket.timeout, TimeoutError, ssl.SSLError, ConnectionError) as e:
         raise SearchError(str(explain_network_error(e, "the paper search service (OpenAlex)")))

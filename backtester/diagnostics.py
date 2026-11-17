@@ -19,6 +19,17 @@ from backtester.data.yahoo import explain_network_error, ssl_context
 REQUIRED = ["numpy", "pandas", "pyarrow", "scipy", "fastapi", "uvicorn", "jinja2", "markdown", "plotly", "multipart", "certifi", "pypdf"]
 
 
+def missing_packages() -> list[str]:
+    """Required packages that cannot be imported (empty when the installation is complete)."""
+    missing = []
+    for mod in REQUIRED:
+        try:
+            importlib.import_module(mod)
+        except ImportError:
+            missing.append(mod)
+    return missing
+
+
 def _check(name: str, ok: bool, detail: str, hint: str = "") -> dict:
     return {"name": name, "ok": ok, "detail": detail, "hint": hint}
 
@@ -47,12 +58,7 @@ def run_checks(cache: Cache | None = None, network: bool = True) -> list[dict]:
                   "Python 3.11 or newer is required. Install a newer Python and rebuild the .venv folder.")]
     out.append(_check("Project folder", (paths.ROOT / "pyproject.toml").exists(), str(paths.ROOT),
                       "Run commands from inside the cloned 'backtest' folder, or set BACKTEST_HOME to it."))
-    missing = []
-    for mod in REQUIRED:
-        try:
-            importlib.import_module(mod)
-        except ImportError:
-            missing.append(mod)
+    missing = missing_packages()
     out.append(_check("Installed packages", not missing, "all present" if not missing else "missing: " + ", ".join(missing),
                       'Run: .venv/bin/pip install -e ".[dev]" (from the project folder).'))
     for label, folder in (("Data folder writable", cache.root), ("Runs folder writable", paths.ROOT / "runs")):

@@ -48,6 +48,10 @@ def read_pdf(data: bytes, filename: str = "paper.pdf") -> dict:
         raise PaperError(f"{filename} is not a PDF file.")
     try:
         from pypdf import PdfReader
+    except ImportError:
+        raise PaperError("The PDF reader (pypdf) is not installed, so papers cannot be read yet. Close the dashboard and start it "
+                         "again with start.sh (Mac: Start Backtester.command, Windows: start.bat), which installs it.")
+    try:
         reader = PdfReader(io.BytesIO(data))
         if reader.is_encrypted:
             try:

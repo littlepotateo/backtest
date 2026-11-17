@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Research{% endblock %}
-{% block scripts %}<script src="/static/research.js" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ static('research.js') }}" defer></script>{% endblock %}
 {% block main %}
 <h1>Research library</h1>
 <p class="sub">Collect papers, note the results they claim, and keep track of which ones you have tested.</p>
