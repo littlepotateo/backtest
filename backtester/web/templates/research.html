@@ -13,13 +13,15 @@
       The text is read so Claude can use it; the title, year and abstract are filled in where they can be found.
       <input id="paper-file" type="file" accept="application/pdf,.pdf" multiple hidden>
     </div>
+    <label class="small"><input type="checkbox" id="auto-analyse" checked> Have Claude read and analyse each paper after it is added</label>
     <div id="upload-results"></div>
+    <p class="small muted" id="claude-status"></p>
   </div>
   <div>
     <h3 style="margin-top:0">Find papers</h3>
     <form id="search-form">
       <fieldset class="seg" aria-label="Where to search">
-        <label><input type="radio" name="source" value="consensus" checked> <strong>Consensus</strong> through Claude <span class="muted small">(better results, needs Claude Code)</span></label>
+        <label><input type="radio" name="source" value="consensus" checked> <strong>Consensus</strong> through Claude <span class="muted small">(better results; runs Claude Code on this computer)</span></label>
         <label><input type="radio" name="source" value="openalex"> <strong>OpenAlex</strong> <span class="muted small">(instant, in this page)</span></label>
       </fieldset>
       <div class="row">
@@ -39,9 +41,10 @@
   </div>
 </div>
 <div id="requests-box" {% if not requests %}hidden{% endif %}>
-  <div class="row between"><h2>Searches waiting for Claude</h2><button type="button" id="check-requests">Check for results</button></div>
+  <div class="row between"><h2>Claude searches</h2><button type="button" id="check-requests">Check for results</button></div>
   <div id="requests">{% include "_requests.html" %}</div>
 </div>
+<div id="claude-activity"></div>
 <div id="search-results"></div>
 
 <h2>Your library</h2>

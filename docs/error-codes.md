@@ -20,7 +20,7 @@ Codes are stable: a code never changes meaning. The test suite checks that every
 
 ## Fallback codes
 
-`BT-ERR-000`, `BT-PDF-000`, `BT-REQ-000` and `BT-SRCH-000` are used only when an error has no more specific code. Read the message, and tell me the code and the message.
+`BT-ERR-000`, `BT-PDF-000`, `BT-REQ-000`, `BT-SRCH-000` and `BT-CLAUDE-000` are used only when an error has no more specific code. Read the message, and tell me the code and the message.
 
 ## Papers (`BT-PDF`, `BT-REQ`, `BT-SRCH`)
 
@@ -41,6 +41,16 @@ Codes are stable: a code never changes meaning. The test suite checks that every
 | BT-SRCH-401 | OpenAlex did not accept the saved key. | Check it under OpenAlex settings. |
 | BT-SRCH-429 | OpenAlex's free allowance for your network is used up (it is shared per network address). | Save a free key under OpenAlex settings, or use Consensus through Claude. |
 | BT-SRCH-500 | OpenAlex returned another HTTP error. | Try again later. |
+
+## Claude Code jobs (`BT-CLAUDE`)
+
+| Code | Meaning | What to do |
+|---|---|---|
+| BT-CLAUDE-001 | Claude Code (the `claude` program) was not found on this computer. | Install it and sign in once by typing `claude` in a terminal (https://code.claude.com/docs), then restart the dashboard. If it is installed in an unusual place, set the environment variable `BACKTEST_CLAUDE` to its full path. |
+| BT-CLAUDE-002 | Claude Code could not start, stopped without an answer, reported an error, or ran past the time limit (10 minutes). | Read the message; try again, or use a shorter paper. |
+| BT-CLAUDE-003 | Claude Code is installed but not signed in. | Type `claude` in a terminal and sign in, then try again. |
+| BT-CLAUDE-004 | Claude Code cannot reach Consensus. | Add the Consensus connector at claude.ai/settings/connectors, start `claude` once to sign in, then try again. OpenAlex search works without it. |
+| BT-CLAUDE-005 | Claude's reply could not be used (not valid JSON, no summary, no papers), or the paper has nothing to analyse. | Try again; for a paper with no text, drop its PDF first. |
 
 ## Data and downloads (`BT-DATA`, `BT-NET`)
 

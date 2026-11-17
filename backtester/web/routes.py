@@ -14,7 +14,9 @@ from backtester.data import service
 from backtester.data.cache import INTERVAL_SECONDS, Cache
 from backtester.data.yahoo import _INTERVALS, DataError
 from backtester.research import Library
+from backtester import claude_code
 from backtester.errors import CodedError
+from backtester.research import claude_jobs
 from backtester.research.ingest import PaperError, read_pdf
 from backtester.research.requests import Requests
 from backtester.version import server_version
@@ -281,6 +283,33 @@ def register(app: FastAPI, ctx) -> None:
     async def request_create(request: Request):
         b = await body(request)
         return Requests(ctx.lib_dir).create(str(b.get("query", "")), str(b.get("notes", "")))
+
+    @app.get("/api/claude/status")
+    def claude_status():
+        return claude_code.status()
+
+    @app.post("/api/claude/search")
+    async def claude_search(request: Request):
+        """Save the search as a request; if Claude Code is on this computer, run it now, otherwise hand back the line to paste."""
+        b = await body(request)
+        made = Requests(ctx.lib_dir).create(str(b.get("query", "")), str(b.get("notes", "")))
+        if not claude_code.find_claude():
+            return {"claude": False, "request": made, "help": claude_code.INSTALL_HELP}
+        run = lambda log: claude_jobs.search_job(ctx.lib_dir, ctx.root, made["query"], made["notes"], made["id"], log)
+        return {"claude": True, "request": made, "task_id": tasks.submit(f"Claude searches Consensus: {made['query'][:60]}", run)}
+
+    @app.post("/api/papers/{pid}/analyse")
+    def paper_analyse(pid: str):
+        if not PAPER_ID.match(pid):
+            return fail("No such paper.", 404)
+        try:
+            title = Library(ctx.lib_dir).get(pid)["title"]
+        except KeyError:
+            return fail("No such paper.", 404)
+        if not claude_code.find_claude():
+            raise claude_code.ClaudeError("Claude Code was not found on this computer. " + claude_code.INSTALL_HELP, "BT-CLAUDE-001")
+        run = lambda log: claude_jobs.analyse_job(ctx.lib_dir, ctx.root, pid, log)
+        return {"task_id": tasks.submit(f"Claude analyses: {title[:60]}", run)}
 
     @app.post("/api/requests/{rid}/delete")
     def request_delete(rid: str):

@@ -10,7 +10,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import threading
 import unicodedata
+from functools import wraps
 from datetime import date
 from pathlib import Path
 
@@ -31,6 +33,17 @@ def slug(title: str, year: int | None = None) -> str:
     if not base:
         base = "paper-" + hashlib.sha1(title.encode("utf-8")).hexdigest()[:8]
     return f"{base}-{year}" if year else base
+
+
+_LOCK = threading.RLock()          # uploads and background Claude jobs may save at the same moment
+
+
+def _locked(fn):
+    @wraps(fn)
+    def inner(*a, **k):
+        with _LOCK:
+            return fn(*a, **k)
+    return inner
 
 
 class LibraryError(CodedError):
@@ -96,6 +109,7 @@ class Library:
         self.root.mkdir(parents=True, exist_ok=True)
         self.index_path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
+    @_locked
     def add(self, title: str, *, authors: str = "", year: int | None = None, venue: str = "",
             url: str = "", consensus_id: str = "", finding: str = "", claims: list[str] | None = None,
             full_text: bool = False, abstract: str = "", doi: str = "", openalex_id: str = "") -> str:
@@ -124,6 +138,7 @@ class Library:
                              "## Rules (as stated)\n\n## Assumptions I had to make\n\n## Replication notes\n", encoding="utf-8")
         return pid
 
+    @_locked
     def attach_pdf(self, pid: str, pdf: bytes, text: str) -> None:
         """Store the PDF and its extracted text beside the library so Claude can read the full text."""
         data = self._read()
@@ -136,6 +151,7 @@ class Library:
         entry.update(pdf=f"files/{pid}.pdf", text_file=f"files/{pid}.txt", claims_from_full_text=bool(text.strip()))
         self._write(data)
 
+    @_locked
     def update(self, pid: str, **fields) -> dict:
         """Edit the descriptive fields of a paper (title, authors, year, venue, url, finding, claims, status, ...)."""
         allowed = {"title", "authors", "year", "venue", "url", "finding", "claims", "status", "abstract", "doi",
@@ -157,6 +173,7 @@ class Library:
         self._write(data)
         return data["papers"][pid]
 
+    @_locked
     def delete(self, pid: str) -> None:
         data = self._read()
         self.get(pid)
@@ -164,6 +181,28 @@ class Library:
         self._write(data)
         for f in (self.root / f"{pid}.md", self.root / "files" / f"{pid}.pdf", self.root / "files" / f"{pid}.txt"):
             f.unlink(missing_ok=True)
+
+    @_locked
+    def set_analysis(self, pid: str, analysis: dict, *, from_full_text: bool) -> dict:
+        """Save Claude's analysis of a paper. The paper's claimed results are filled in only if none are recorded yet
+        (results typed by the user are never overwritten); the analysis is also appended to the paper's notes."""
+        data = self._read()
+        self.get(pid)
+        entry = data["papers"][pid]
+        entry["analysis"] = {**analysis, "analysed": date.today().isoformat(), "from_full_text": from_full_text}
+        if not entry.get("claims") and analysis.get("claimed_results"):
+            entry["claims"] = list(analysis["claimed_results"])
+            entry["claims_from_full_text"] = from_full_text
+        self._write(data)
+        notes = self.root / f"{pid}.md"
+        lines = [f"\n## Claude's analysis ({entry['analysis']['analysed']}, from {'the full text' if from_full_text else 'the abstract only'})\n",
+                 analysis.get("summary", ""), ""]
+        for title, key in (("Rules as stated", "rules"), ("Assumptions needed", "assumptions_needed"), ("Missing information", "missing_information")):
+            if analysis.get(key):
+                lines += [f"**{title}**", ""] + [f"- {x}" for x in analysis[key]] + [""]
+        with notes.open("a", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+        return entry
 
     def get(self, pid: str) -> dict:
         papers = self._read()["papers"]
@@ -174,6 +213,7 @@ class Library:
     def list(self) -> list[dict]:
         return sorted(self._read()["papers"].values(), key=lambda p: (p["status"], p["title"]))
 
+    @_locked
     def set_status(self, pid: str, status: str) -> None:
         if status not in STATUSES:
             raise ValueError(f"status must be one of {STATUSES}")
@@ -182,6 +222,7 @@ class Library:
         data["papers"][pid]["status"] = status
         self._write(data)
 
+    @_locked
     def link_run(self, pid: str, run_dir: str | Path, strategy: str | None = None) -> dict:
         """Attach a finished run to a paper, copying the headline metrics."""
         run_dir = Path(run_dir)

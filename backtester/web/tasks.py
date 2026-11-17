@@ -13,7 +13,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
 
-from backtester.data.yahoo import DataError
+from backtester.errors import CodedError
 
 
 class Tasks:
@@ -38,7 +38,7 @@ class Tasks:
                 result = fn(log)
                 with self._lock:
                     task.update(status="done", result=result)
-            except DataError as e:                       # an expected, explainable failure: shown as the task's error
+            except CodedError as e:                      # an expected, explainable failure: shown as the task's error
                 with self._lock:
                     task.update(status="failed", error=str(e), code=e.code)
             except Exception as e:                       # a bug: keep the detail for the log

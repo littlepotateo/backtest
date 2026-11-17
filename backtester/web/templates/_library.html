@@ -15,8 +15,21 @@
   {% if p.run_ids %}<p class="small">Tested in: {% for rid in p.run_ids %}<a href="/run/{{ rid }}">{{ rid[:15] }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
   <div class="row">
     <button type="button" class="copy-prompt" data-prompt="Use the backtest skill to replicate the paper &quot;{{ p.title }}&quot;. Its notes are in research/library/{{ p.id }}.md{% if p.text_file %} and the full text is in research/library/{{ p.text_file }}{% endif %}. Record the claimed results as the paper states them, write the strategy, run bt validate, then link the run with bt paper link {{ p.id }} <run folder>.">Copy instructions for Claude</button>
+    <button type="button" class="analyse-paper">{{ 'Analyse again with Claude' if p.analysis else 'Analyse with Claude' }}</button>
     <button type="button" class="danger delete-paper">Delete</button>
   </div>
+  {% if p.analysis %}{% set a = p.analysis %}
+  <details class="analysis" open><summary>Claude's analysis ({{ a.analysed }}, from {{ 'the full text' if a.from_full_text else 'the abstract only' }})</summary>
+    <p>{{ a.summary }}</p>
+    <p class="small">{% if a.strategy_family %}<span class="chip">{{ a.strategy_family }}</span> {% endif %}{% if a.replication_difficulty %}<span class="chip">replication: {{ a.replication_difficulty }}</span> {% endif %}
+      {% if a.universe %}<span class="chip">universe: {{ a.universe }}</span> {% endif %}{% if a.data_frequency %}<span class="chip">{{ a.data_frequency }}</span> {% endif %}
+      {% if a.period_tested %}<span class="chip">period: {{ a.period_tested }}</span>{% endif %}</p>
+    {% for title, items in (("Rules as stated", a.rules), ("Assumptions a replicator must make", a.assumptions_needed), ("Not in the text", a.missing_information)) %}
+      {% if items %}<p class="small"><strong>{{ title }}</strong></p><ul class="small">{% for x in items %}<li>{{ x }}</li>{% endfor %}</ul>{% endif %}
+    {% endfor %}
+    {% if a.can_backtest_here %}<p class="small"><strong>Can it be tested here?</strong> {{ a.can_backtest_here }}</p>{% endif %}
+    {% if a.suggested_strategy_description %}<p class="small"><strong>To backtest it, describe it to Claude like this:</strong> {{ a.suggested_strategy_description }}</p>{% endif %}
+  </details>{% endif %}
   <details class="edit"><summary>Edit details and claimed results</summary>
     <form class="edit-form">
       <label class="f">Title</label><input name="title" type="text" value="{{ p.title }}" required>

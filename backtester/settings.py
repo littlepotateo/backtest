@@ -12,7 +12,7 @@ from pathlib import Path
 
 from backtester import paths
 
-KEYS = {"openalex_api_key"}
+KEYS = {"openalex_api_key", "claude_extra_tools"}
 ENV = {"openalex_api_key": "OPENALEX_API_KEY"}
 
 
