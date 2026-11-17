@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status, term %}
+{% block title %}Data{% endblock %}
+{% block scripts %}<script src="/static/data.js" defer></script>{% endblock %}
+{% block main %}
+<h1>Data</h1>
+<p class="sub">Backtests need prices, and (for cash interest) interest rates. Download them here; nothing needs the terminal.</p>
+
+<div class="grid2">
+  <div class="card">
+    <h3 style="margin-top:0">Download prices</h3>
+    <form id="fetch-form">
+      <label class="f" for="symbols">Symbols (separate with commas or spaces)</label>
+      <textarea id="symbols" rows="2" placeholder="SPY, QQQ, EFA" style="min-height:56px" required></textarea>
+      <div class="row">
+        <div><label class="f" for="start">From</label><input id="start" type="date" value="2005-01-01"></div>
+        <div><label class="f" for="interval">Bar size</label>
+          <select id="interval"><option value="1d">Daily</option><option value="1h">Hourly (about 2 years)</option><option value="30m">30 minutes (about 2 months)</option>
+          <option value="15m">15 minutes (about 2 months)</option><option value="5m">5 minutes (about 2 months)</option><option value="1m">1 minute (about 1 week)</option><option value="1w">Weekly</option></select></div>
+      </div>
+      <div class="row"><button class="primary" type="submit" id="fetch-btn">Download</button>
+        <span class="muted small">Source: Yahoo Finance. Prices are adjusted for splits; dividends are tracked separately.</span></div>
+    </form>
+    <p class="small muted" style="margin-bottom:4px">Quick fill:</p>
+    <div class="row">
+      <button type="button" class="quick" data-symbols="SPY, QQQ, IWM, EFA, EEM, AGG, IEF, GLD, VNQ, DBC">Popular ETFs</button>
+      <button type="button" class="quick" data-symbols="^VIX, ^VXN">Volatility indices (for options)</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Interest rates</h3>
+    <p>Used for interest on idle cash and on margin loans (the 13-week Treasury bill yield).</p>
+    <div class="row">
+      <span id="rates-status">{% if has_rates %}{{ status('ok', 'Downloaded') }}{% else %}{{ status('warn', 'Not downloaded yet') }}{% endif %}</span>
+      <button type="button" id="rates-btn">Download interest rates</button>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--grid);margin:16px 0">
+    <h3>Keep everything current</h3>
+    <div class="row"><button type="button" id="update-btn">Update all datasets</button>
+      <button type="button" id="check-btn">Check my setup</button></div>
+    <p class="small muted">"Check my setup" tests the installation, the folders and the internet connection, and says what to fix.</p>
+  </div>
+</div>
+
+<h2>Import your own files</h2>
+<div class="drop" id="data-drop" tabindex="0" role="button" aria-label="Drop price files here, or press Enter to choose files">
+  <strong>Drag and drop price files here</strong>
+  CSV files (date, open, high, low, close, volume) or the JSON from Interactive Brokers. Name a file after its symbol (SPY.csv), or fill in the symbol below.
+  <input id="data-file" type="file" accept=".csv,.json,.txt" multiple hidden>
+</div>
+<div class="row"><label for="import-symbol" class="small muted">Symbol (only if the file is not named after it)</label><input id="import-symbol" type="text" style="max-width:140px" placeholder="SPY"></div>
+
+<h2>Your data</h2>
+<div class="card scroll">
+  <table id="datasets">
+    <thead><tr><th>Symbol</th><th>Bar size</th><th>From</th><th>To</th><th class="n">Bars</th><th>Source</th><th>Status</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <div id="datasets-empty" class="empty" hidden><div class="big">No data yet</div>Download prices above, then run a backtest.</div>
+</div>
+
+<h2>Activity</h2>
+<div id="activity"><p class="muted small" id="activity-empty">Downloads and checks you start appear here, with every step and any error.</p></div>
+<script id="initial-datasets" type="application/json">{{ datasets|tojson }}</script>
+{% endblock %}

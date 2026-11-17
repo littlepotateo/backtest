@@ -33,7 +33,7 @@ a run in this repository.
    saves `runs/<id>/validation.json` and `explanation.md`.
 6. **Write `runs/<id>/narrative.md`** on top of the generated explanation (see
    "Narrative").
-7. **Show it.** `bt serve` opens the dashboard (run page with charts and explanation, comparison, research library).
+7. **Show it.** `bt serve` (or `./start.sh`) opens the dashboard (run page with charts and explanation, comparison, research library). The user can also fetch data (Data page), run backtests (New backtest) and add papers (Research: drop a PDF or search) without the terminal; if a download fails, `bt doctor` says why.
 8. **Tell the user**: the headline numbers, the flags that matter, what you assumed, and
    what you could not verify. Offer the next step; do not oversell.
 

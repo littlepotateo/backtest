@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Runs{% endblock %}
 {% block main %}
-<h1>Runs</h1>
-<p class="sub">Every backtest saved under <code>runs/</code>, newest first.</p>
+<h1>Results</h1>
+<p class="sub">Every backtest you have run, newest first. Click one to read it.</p>
 {% if not runs %}
-<div class="card">No runs yet. Run <code>bt run strategies/examples/sma_cross.py</code> or <code>bt validate ...</code>, then reload.</div>
+<div class="card empty"><div class="big">No results yet</div>Run your first backtest and it will appear here.<p><a class="btn primary" href="/new">New backtest</a></p></div>
 {% else %}
-<div class="row"><label for="run-filter" class="f" style="margin:0">Filter</label><input id="run-filter" type="text" placeholder="strategy, symbol, source…"></div>
+<div class="row"><label for="run-filter" class="f" style="margin:0">Filter</label><input id="run-filter" type="text" placeholder="strategy, symbol, source…"> <a class="btn primary" href="/new">New backtest</a></div>
 <div class="card scroll">
 <table id="runs-table">
   <thead><tr><th>Run</th><th>Strategy</th><th>Universe</th><th>Period</th><th class="n">Total return</th><th class="n">Annual</th>

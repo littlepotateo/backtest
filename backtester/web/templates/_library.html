@@ -1,0 +1,38 @@
+{% if not papers %}
+<div class="card empty"><div class="big">Your library is empty</div>Drop a PDF above, or search for a paper and add it.</div>
+{% endif %}
+{% for p in papers %}
+<div class="card paper" data-id="{{ p.id }}">
+  <div class="row between"><h3>{{ p.title }}</h3>
+    <span class="row"><span class="badge">Status: {{ p.status }}</span>
+    {% if p.pdf %}<span class="badge">full text saved</span>{% else %}<span class="badge">abstract only</span>{% endif %}</span></div>
+  <p class="muted small">{{ p.authors }}{% if p.year %} ({{ p.year }}){% endif %} {{ p.venue }}
+    {% if p.url %}· <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer">source</a>{% endif %}
+    {% if p.pdf %}· <a href="/research/file/{{ p.id }}.pdf" target="_blank">open PDF</a>{% endif %}</p>
+  {% if p.abstract or p.finding %}<details><summary>Abstract</summary><p class="abstract">{{ p.abstract or p.finding }}</p></details>{% endif %}
+  {% if p.claims %}<p class="small"><strong>Claimed results</strong> ({{ 'from the full text' if p.claims_from_full_text else 'from the abstract only' }}):</p>
+  <ul class="small">{% for c in p.claims %}<li>{{ c }}</li>{% endfor %}</ul>{% endif %}
+  {% if p.run_ids %}<p class="small">Tested in: {% for rid in p.run_ids %}<a href="/run/{{ rid }}">{{ rid[:15] }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+  <div class="row">
+    <button type="button" class="copy-prompt" data-prompt="Use the backtest skill to replicate the paper &quot;{{ p.title }}&quot;. Its notes are in research/library/{{ p.id }}.md{% if p.text_file %} and the full text is in research/library/{{ p.text_file }}{% endif %}. Record the claimed results as the paper states them, write the strategy, run bt validate, then link the run with bt paper link {{ p.id }} <run folder>.">Copy instructions for Claude</button>
+    <button type="button" class="danger delete-paper">Delete</button>
+  </div>
+  <details class="edit"><summary>Edit details and claimed results</summary>
+    <form class="edit-form">
+      <label class="f">Title</label><input name="title" type="text" value="{{ p.title }}" required>
+      <div class="row"><div><label class="f">Authors</label><input name="authors" type="text" value="{{ p.authors }}"></div>
+        <div><label class="f">Year</label><input name="year" type="number" value="{{ p.year or '' }}" style="max-width:110px"></div>
+        <div><label class="f">Journal or source</label><input name="venue" type="text" value="{{ p.venue }}"></div></div>
+      <label class="f">Link</label><input name="url" type="text" value="{{ p.url }}">
+      <label class="f">Key finding (one or two sentences)</label><textarea name="finding">{{ p.finding }}</textarea>
+      <label class="f">Claimed results, one per line, worded as the paper states them</label><textarea name="claims">{{ p.claims|join('\n') }}</textarea>
+      <label><input type="checkbox" name="claims_from_full_text" {{ 'checked' if p.claims_from_full_text }}> These claims come from the full text</label>
+      <label class="f">Status</label>
+      <select name="status">{% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s == p.status }}>{{ s }}</option>{% endfor %}</select>
+      <p><button class="primary" type="submit">Save changes</button></p>
+    </form>
+  </details>
+  {% if p.runs %}<details><summary>Claimed versus replicated</summary><div class="prose">{{ p.comparison_html|safe }}</div></details>{% endif %}
+  {% if p.notes_html %}<details><summary>Replication notes</summary><div class="prose">{{ p.notes_html|safe }}</div></details>{% endif %}
+</div>
+{% endfor %}

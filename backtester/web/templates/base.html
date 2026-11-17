@@ -6,18 +6,25 @@
 <link rel="stylesheet" href="/static/style.css">
 <script src="/static/plotly.min.js"></script>
 {% block head %}{% endblock %}
+<script src="/static/common.js" defer></script>
 <script src="/static/app.js" defer></script>
+{% block scripts %}{% endblock %}
 </head>
 <body>
 <header class="top">
-  <span class="brand">Strategy backtester</span>
+  <a class="brand" href="/">Strategy backtester</a>
   <nav aria-label="Main">
-    <a href="/" {% if nav == '/' or nav.startswith('/run') %}aria-current="page"{% endif %}>Runs</a>
-    <a href="/compare" {% if nav == '/compare' %}aria-current="page"{% endif %}>Compare</a>
+    <a href="/" {% if nav == '/' %}aria-current="page"{% endif %}>Home</a>
+    <a href="/new" {% if nav == '/new' %}aria-current="page"{% endif %}>New backtest</a>
+    <a href="/runs" {% if nav == '/runs' or nav.startswith('/run/') or nav.startswith('/rerun') or nav.startswith('/jobs') %}aria-current="page"{% endif %}>Results</a>
+    <a href="/data" {% if nav == '/data' %}aria-current="page"{% endif %}>Data</a>
     <a href="/research" {% if nav == '/research' %}aria-current="page"{% endif %}>Research</a>
+    <a href="/compare" {% if nav == '/compare' %}aria-current="page"{% endif %}>Compare</a>
   </nav>
+  <button id="refresh-btn" type="button" title="Reload everything from disk and clear filters, selections and finished activity messages">↻ Refresh</button>
   <button id="theme-toggle" type="button" aria-label="Switch between light and dark">Light / dark</button>
 </header>
+<div id="toasts" role="status" aria-live="polite"></div>
 <main>{% block main %}{% endblock %}</main>
 <footer>Simulated results from historical prices, not investment advice. Option prices are modelled, not quotes.</footer>
 </body>

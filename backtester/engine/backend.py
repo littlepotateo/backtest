@@ -46,7 +46,7 @@ def load_rates(cache: Cache) -> pd.Series | None:
 def build_option_models(symbols: list[str], data: dict[str, pd.DataFrame], rates: pd.Series | None,
                         cache: Cache | None = None, levels: dict[str, pd.Series] | None = None,
                         scale: tuple[float, float] = (1.0, 1.0),
-                        surface_config: str = "config/vol_surface.toml",
+                        surface_config: str | None = None,
                         params: dict | None = None) -> dict:
     """An OptionModel per underlying. The volatility level comes from `levels` if given,
     else the cached volatility index for that symbol, else the underlying's own realised

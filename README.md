@@ -52,6 +52,8 @@ Those generated folders are ignored by Git, so they start empty in a fresh clone
 .venv/bin/bt serve
 ```
 
+**Browser only (no terminal commands):** double-click `Start Backtester.command` (Mac), `start.bat` (Windows) or run `./start.sh` (Linux). The first start creates `.venv`, installs everything and opens the dashboard. From then on, the Data page downloads prices and interest rates, the New backtest page runs strategies, and the Research page takes dropped PDFs and searches published papers. The Refresh button reloads from disk and clears the page state. `bt doctor` checks the setup and network if a download fails.
+
 Then open http://127.0.0.1:8000 (use `--port` to change it). The server listens on this computer only and refuses form posts from other websites.
 
 Other commands: `bt data`, `bt check`, `bt optimize`, `bt ingest-ibkr`, `bt compare-ibkr`, `bt import-csv`. Run `bt <command> --help` for options.

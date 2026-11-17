@@ -1,0 +1,27 @@
+"""Plain-language definitions shown as hover/focus tips next to technical terms."""
+
+GLOSSARY = {
+    "sharpe": "Return per unit of risk: the average gain above the risk-free rate divided by how much the account bounced around. Higher is better; below about 0.5 is weak.",
+    "sortino": "Like the Sharpe ratio, but only counts the bounces downward as risk.",
+    "volatility": "How much the account value moves up and down, as an annual percentage. Higher means a bumpier ride.",
+    "annual": "The yearly growth rate that would turn the starting cash into the final value (compound annual growth).",
+    "drawdown": "A fall from a previous high. The 'worst fall' is the biggest drop from a peak to a later low.",
+    "total_return": "How much the account grew over the whole period, in percent.",
+    "benchmark": "What simply buying and holding a comparison asset (usually SPY) would have done over the same days.",
+    "beta": "How strongly the strategy moves with the benchmark. 1.0 moves one-for-one; 0 is unrelated.",
+    "alpha": "Yearly return left over after removing what the benchmark exposure explains.",
+    "trades": "Closed positions. For portfolios that rebalance, each partial sale counts as one.",
+    "win_rate": "The share of closed trades that made money.",
+    "evidence": "How well the tests support the result. It ranks how believable the result is; it is not a forecast of future profit.",
+    "walk_forward": "Re-tune the strategy on the past, then trade the next period it has never seen, again and again. A big gap between in-sample and out-of-sample results suggests overfitting.",
+    "monte_carlo": "Reshuffles the strategy's own returns thousands of times to show the range of outcomes (and worst falls) that could have happened.",
+    "kelly": "The position size that grows money fastest in the long run. Betting more than that raises risk and lowers growth.",
+    "overfitting": "A strategy tuned so closely to past data that it mostly captures noise, and then fails on new data.",
+    "look_ahead": "Using information that was not yet known at the time. A strategy that does this looks great and cannot work in real life.",
+    "regime": "A kind of market: for example rising (above its 200-day average) or falling.",
+    "slippage": "The small cost of not getting the exact price: buying a touch higher, selling a touch lower.",
+    "modelled": "Option prices here come from a formula (Black-Scholes) with an assumed volatility, not from real quotes.",
+    "gamma": "How fast an option's delta changes when the price moves. Large near the strike close to expiry.",
+    "rebalance": "Periodically trading back to target weights.",
+    "adjusted": "Prices adjusted for dividends and splits so that returns include them.",
+}

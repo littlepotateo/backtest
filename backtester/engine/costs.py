@@ -6,6 +6,8 @@ import tomllib
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from backtester import paths
+
 
 @dataclass(frozen=True)
 class CostModel:
@@ -39,8 +41,8 @@ class CostModel:
         return cls(per_share=0, min_per_order=0, max_pct_of_trade=0, slippage_bps=0, confirmed=True)
 
     @classmethod
-    def from_toml(cls, path: str | Path = "config/costs.toml") -> "CostModel":
-        path = Path(path)
+    def from_toml(cls, path: str | Path | None = None) -> "CostModel":
+        path = Path(path or paths.COSTS)
         if not path.exists():
             return cls()
         raw = tomllib.loads(path.read_text())

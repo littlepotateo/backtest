@@ -12,6 +12,8 @@ import re
 from datetime import date
 from pathlib import Path
 
+from backtester import paths
+
 STATUSES = ("candidate", "replicating", "replicated", "partly replicated", "not replicated", "rejected")
 
 
@@ -21,8 +23,8 @@ def slug(title: str, year: int | None = None) -> str:
 
 
 class Library:
-    def __init__(self, root: str | Path = "research/library"):
-        self.root = Path(root)
+    def __init__(self, root: str | Path | None = None):
+        self.root = Path(root or paths.LIBRARY)
         self.index_path = self.root / "index.json"
 
     def _read(self) -> dict:
@@ -34,7 +36,7 @@ class Library:
 
     def add(self, title: str, *, authors: str = "", year: int | None = None, venue: str = "",
             url: str = "", consensus_id: str = "", finding: str = "", claims: list[str] | None = None,
-            full_text: bool = False) -> str:
+            full_text: bool = False, abstract: str = "", doi: str = "", openalex_id: str = "") -> str:
         """Save a paper (or update one with the same title and year). `claims` are the
         results the paper reports, quoted as the paper states them; `full_text` says
         whether the claims were read from the full text (otherwise the abstract only)."""
@@ -50,6 +52,8 @@ class Library:
             "claims_from_full_text": full_text or old.get("claims_from_full_text", False),
             "status": old.get("status", "candidate"), "strategies": old.get("strategies", []),
             "runs": old.get("runs", []), "added": old.get("added", date.today().isoformat()),
+            "pdf": old.get("pdf", ""), "text_file": old.get("text_file", ""), "doi": doi or old.get("doi", ""),
+            "openalex_id": openalex_id or old.get("openalex_id", ""), "abstract": abstract or old.get("abstract", ""),
         }
         self._write(data)
         notes = self.root / f"{pid}.md"
@@ -57,6 +61,47 @@ class Library:
             notes.write_text(f"# {title}\n\n{authors} ({year}). {venue}\n\n{url}\n\n## Key finding\n\n{finding}\n\n"
                              "## Rules (as stated)\n\n## Assumptions I had to make\n\n## Replication notes\n")
         return pid
+
+    def attach_pdf(self, pid: str, pdf: bytes, text: str) -> None:
+        """Store the PDF and its extracted text beside the library so Claude can read the full text."""
+        data = self._read()
+        self.get(pid)
+        folder = self.root / "files"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / f"{pid}.pdf").write_bytes(pdf)
+        (folder / f"{pid}.txt").write_text(text)
+        entry = data["papers"][pid]
+        entry.update(pdf=f"files/{pid}.pdf", text_file=f"files/{pid}.txt", claims_from_full_text=bool(text.strip()))
+        self._write(data)
+
+    def update(self, pid: str, **fields) -> dict:
+        """Edit the descriptive fields of a paper (title, authors, year, venue, url, finding, claims, status, ...)."""
+        allowed = {"title", "authors", "year", "venue", "url", "finding", "claims", "status", "abstract", "doi",
+                   "claims_from_full_text"}
+        data = self._read()
+        self.get(pid)
+        for k, v in fields.items():
+            if k not in allowed:
+                raise KeyError(f"cannot edit {k!r}")
+            if k == "status" and v not in STATUSES:
+                raise ValueError(f"status must be one of {STATUSES}")
+            if k == "claims":
+                v = [c.strip() for c in v if c and c.strip()]
+            if k == "year" and v in ("", None):
+                v = None
+            elif k == "year":
+                v = int(v)
+            data["papers"][pid][k] = v
+        self._write(data)
+        return data["papers"][pid]
+
+    def delete(self, pid: str) -> None:
+        data = self._read()
+        self.get(pid)
+        del data["papers"][pid]
+        self._write(data)
+        for f in (self.root / f"{pid}.md", self.root / "files" / f"{pid}.pdf", self.root / "files" / f"{pid}.txt"):
+            f.unlink(missing_ok=True)
 
     def get(self, pid: str) -> dict:
         papers = self._read()["papers"]
