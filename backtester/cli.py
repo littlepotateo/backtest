@@ -407,10 +407,32 @@ def cmd_paper(args):
 
 
 def cmd_serve(args):
+    import socket
+    import threading
+    import time
+    import webbrowser
+
     import uvicorn
 
     from backtester.web.app import create_app
-    print(f"Dashboard at http://{args.host}:{args.port} (this computer only; Ctrl+C to stop)")
+    url = f"http://{args.host}:{args.port}"
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        if probe.connect_ex((args.host, args.port)) == 0:
+            if args.open:
+                webbrowser.open(url)
+            raise SystemExit(f"Something is already running at {url}. If that is the dashboard, just open that address "
+                             f"(it is opening now if you used --open). To start a second one, use --port with another number.")
+    print(f"Dashboard at {url}  (this computer only; press Ctrl+C to stop)")
+
+    def open_when_ready():
+        for _ in range(50):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                if s.connect_ex((args.host, args.port)) == 0:
+                    webbrowser.open(url)
+                    return
+            time.sleep(0.2)
+    if args.open:
+        threading.Thread(target=open_when_ready, daemon=True).start()
     uvicorn.run(create_app(args.root), host=args.host, port=args.port, log_level="warning")
 
 
@@ -543,6 +565,7 @@ def main(argv=None):
     s = sub.add_parser("serve", help="start the local dashboard")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8000)
+    s.add_argument("--open", action="store_true", help="open the dashboard in the browser once it is ready")
     s.add_argument("--root", default=paths.in_root("."), help="project folder holding runs/, data/ and research/")
     s.set_defaults(func=cmd_serve)
 

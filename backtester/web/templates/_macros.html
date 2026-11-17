@@ -1,0 +1,6 @@
+{% macro term(key, label=None) -%}
+<abbr class="term" tabindex="0" data-tip="{{ glossary[key] }}">{{ label or key }}</abbr>
+{%- endmacro %}
+{% macro status(kind, text) -%}
+<span class="status {{ kind }}"><span class="dot" aria-hidden="true">{{ {'ok': '✓', 'warn': '!', 'bad': '✕', 'wait': '…'}[kind] }}</span>{{ text }}</span>
+{%- endmacro %}

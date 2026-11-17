@@ -1,0 +1,282 @@
+"""Dashboard routes for data, strategies, papers and housekeeping (JSON for the page scripts)."""
+
+from __future__ import annotations
+
+import re
+import shutil
+from pathlib import Path
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+from backtester import diagnostics, settings
+from backtester.data import service
+from backtester.data.cache import INTERVAL_SECONDS, Cache
+from backtester.data.yahoo import _INTERVALS, DataError
+from backtester.research import Library
+from backtester.research.ingest import PaperError, read_pdf
+from backtester.research.search import SearchError, search_papers
+from backtester.web import data as D
+from backtester.web import strategies as S
+
+DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+PAPER_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,120}$")
+
+
+def fail(message: str, status: int = 400) -> JSONResponse:
+    return JSONResponse({"error": message}, status_code=status)
+
+
+async def body(request: Request) -> dict:
+    try:
+        data = await request.json()
+    except Exception:
+        raise DataError("The request was not understood.")
+    if not isinstance(data, dict):
+        raise DataError("The request was not understood.")
+    return data
+
+
+def check_interval(interval: str) -> str:
+    if interval not in _INTERVALS or interval not in INTERVAL_SECONDS:
+        raise DataError(f"Bar size must be one of: {', '.join(_INTERVALS)}.")
+    return interval
+
+
+def check_date(value, name: str = "start") -> str | None:
+    value = (value or "").strip() if isinstance(value, str) else value
+    if not value:
+        return None
+    if not DATE.match(value):
+        raise DataError(f"The {name} date must look like 2005-01-31.")
+    return value
+
+
+def register(app: FastAPI, ctx) -> None:
+    cache = Cache(ctx.cache_dir)
+    tasks, runs_dir = ctx.tasks, ctx.runs_dir
+
+    @app.exception_handler(DataError)
+    async def data_error(_: Request, e: DataError):
+        return fail(str(e))
+
+    @app.exception_handler(PaperError)
+    async def paper_error(_: Request, e: PaperError):
+        return fail(str(e))
+
+    @app.exception_handler(SearchError)
+    async def search_error(_: Request, e: SearchError):
+        return fail(str(e))
+
+    # --- tasks ---------------------------------------------------------------------------
+    @app.get("/api/tasks/{task_id}")
+    def task(task_id: str):
+        t = tasks.get(task_id)
+        return t if t else fail("No such task.", 404)
+
+    @app.get("/api/tasks")
+    def recent_tasks():
+        return {"tasks": tasks.recent()}
+
+    @app.post("/api/refresh")
+    def refresh():
+        return {"cleared": tasks.clear_finished()}
+
+    # --- data ------------------------------------------------------------------------------
+    @app.get("/api/data/list")
+    def data_list():
+        return {"datasets": service.dataset_table(cache)}
+
+    @app.post("/api/data/fetch")
+    async def data_fetch(request: Request):
+        b = await body(request)
+        start = check_date(b.get("start"))
+        if b.get("items") is not None:
+            items = []
+            for it in b["items"][:40]:
+                sym = service.clean_symbols(str(it.get("symbol", "")))[0]
+                items.append((sym, check_interval(it.get("interval", "1d")), check_date(it.get("start")) or start))
+        else:
+            interval = check_interval(b.get("interval", "1d"))
+            items = [(s, interval, start) for s in service.clean_symbols(str(b.get("symbols", "")))]
+
+        def run(log):
+            done, failed = [], []
+            for sym, interval, st in items:
+                try:
+                    done.append(service.fetch_symbol(cache, sym, interval, st, log))
+                except DataError as e:
+                    log(f"{sym}: FAILED. {e}")
+                    failed.append([sym, str(e)])
+            if failed and not done:
+                raise DataError("; ".join(f"{s}: {m}" for s, m in failed))
+            log(f"Finished: {len(done)} downloaded" + (f", {len(failed)} failed." if failed else "."))
+            return {"done": done, "failed": failed}
+        title = "Download " + ", ".join(s for s, _, _ in items[:6]) + ("…" if len(items) > 6 else "")
+        return {"task_id": tasks.submit(title, run)}
+
+    @app.post("/api/data/rates")
+    async def data_rates(request: Request):
+        b = await body(request)
+        start = check_date(b.get("start")) or "1990-01-01"
+        return {"task_id": tasks.submit("Download interest rates", lambda log: service.fetch_rates(cache, start, log))}
+
+    @app.post("/api/data/update")
+    def data_update():
+        return {"task_id": tasks.submit("Update all datasets", lambda log: service.update_all(cache, log))}
+
+    @app.post("/api/data/upload")
+    async def data_upload(request: Request):
+        form = await request.form()
+        files = [(f.filename, await f.read()) for f in form.getlist("files") if getattr(f, "filename", "")]
+        if not files:
+            raise DataError("Drop at least one .csv or .json price file.")
+        if sum(len(c) for _, c in files) > 200 * 1024 * 1024:
+            raise DataError("Those files are too large (limit 200 MB in total).")
+        symbol = (form.get("symbol") or "").strip() or None
+        interval = (form.get("interval") or "").strip() or None
+        if symbol:
+            symbol = service.clean_symbols(symbol)[0]
+        if interval:
+            check_interval(interval)
+
+        def run(log):
+            done, failed = [], []
+            for name, content in files:
+                try:
+                    done.append(service.import_file(cache, name, content, symbol if len(files) == 1 else None, interval, log))
+                except DataError as e:
+                    log(f"{name}: FAILED. {e}")
+                    failed.append([name, str(e)])
+            if failed and not done:
+                raise DataError("; ".join(f"{n}: {m}" for n, m in failed))
+            return {"done": done, "failed": failed}
+        return {"task_id": tasks.submit(f"Import {len(files)} file(s)", run)}
+
+    @app.post("/api/data/delete")
+    async def data_delete(request: Request):
+        b = await body(request)
+        service.delete_dataset(cache, service.clean_symbols(str(b.get("symbol", "")))[0], check_interval(b.get("interval", "1d")))
+        return {"ok": True}
+
+    @app.post("/api/data/check")
+    def data_check():
+        def run(log):
+            results = diagnostics.run_checks(cache)
+            for c in results:
+                log(f"{'ok  ' if c['ok'] else 'FAIL'} {c['name']}: {c['detail']}" + (f"  → {c['hint']}" if not c["ok"] and c["hint"] else ""))
+            if not all(c["ok"] for c in results):
+                raise DataError("Some checks failed. See the lines above.")
+            return {"checks": results}
+        return {"task_id": tasks.submit("Check my setup", run)}
+
+    # --- strategies --------------------------------------------------------------------------
+    @app.get("/api/strategies")
+    def strategies():
+        return {"strategies": S.list_strategies(ctx.root)}
+
+    @app.get("/api/strategies/needs")
+    def strategy_needs(path: str):
+        found = [s for s in S.list_strategies(ctx.root) if s["path"] == path]
+        if not found:
+            return fail("No such strategy.", 404)
+        needs = S.data_needs(found[0], cache)
+        return {"strategy": found[0], "needs": needs, "suggested_start": S.suggested_start(found[0], needs),
+                "missing": [n for n in needs if not n["cached"]]}
+
+    # --- runs ---------------------------------------------------------------------------------
+    @app.post("/api/runs/{run_id}/delete")
+    def delete_run(run_id: str):
+        try:
+            d = D.safe_run_dir(runs_dir, run_id)
+        except D.NotFound:
+            return fail("No such run.", 404)
+        shutil.rmtree(d)
+        return {"ok": True}
+
+    # --- settings ---------------------------------------------------------------------------------
+    @app.get("/api/settings")
+    def get_settings():
+        return {"openalex_key_set": settings.is_set("openalex_api_key")}      # never the key itself
+
+    @app.post("/api/settings")
+    async def save_settings(request: Request):
+        b = await body(request)
+        key = str(b.get("openalex_api_key", "")).strip()
+        if len(key) > 200 or any(c.isspace() for c in key):
+            raise DataError("That does not look like a key.")
+        settings.set_value("openalex_api_key", key)
+        return {"openalex_key_set": settings.is_set("openalex_api_key")}
+
+    # --- papers ---------------------------------------------------------------------------------
+    @app.get("/api/papers/search")
+    def paper_search(q: str):
+        return {"results": search_papers(q)}
+
+    @app.post("/api/papers/add")
+    async def paper_add(request: Request):
+        b = await body(request)
+        title = str(b.get("title", "")).strip()
+        if not title:
+            raise DataError("A paper needs a title.")
+        lib = Library(ctx.lib_dir)
+        year = int(b["year"]) if str(b.get("year") or "").isdigit() else None
+        pid = lib.add(title, authors=str(b.get("authors", ""))[:500], year=year, venue=str(b.get("venue", ""))[:200],
+                      url=str(b.get("url", ""))[:500], finding=str(b.get("finding", ""))[:3000], doi=str(b.get("doi", ""))[:200],
+                      abstract=str(b.get("abstract", ""))[:3000], openalex_id=str(b.get("openalex_id", ""))[:40])
+        return {"id": pid}
+
+    @app.post("/api/papers/upload")
+    async def paper_upload(request: Request):
+        form = await request.form()
+        lib = Library(ctx.lib_dir)
+        out = []
+        for f in form.getlist("files"):
+            name = getattr(f, "filename", "")
+            if not name:
+                continue
+            try:
+                if not name.lower().endswith(".pdf"):
+                    raise PaperError(f"{name} is not a PDF. Drop PDF files here.")
+                data = await f.read()
+                info = read_pdf(data, name)
+                pid = lib.add(info["title"], authors=info["authors"], year=info["year"], doi=info["doi"],
+                              abstract=info["abstract"], finding=info["abstract"][:600])
+                lib.attach_pdf(pid, data, info["text"])
+                out.append({"file": name, "ok": True, "id": pid, "title": info["title"], "pages": info["pages"],
+                            "year": info["year"], "has_abstract": bool(info["abstract"]), "warning": info["warning"]})
+            except PaperError as e:
+                out.append({"file": name, "ok": False, "error": str(e)})
+        if not out:
+            raise PaperError("Drop at least one PDF file.")
+        return {"results": out}
+
+    @app.post("/api/papers/{pid}/update")
+    async def paper_update(pid: str, request: Request):
+        if not PAPER_ID.match(pid):
+            return fail("No such paper.", 404)
+        b = await body(request)
+        lib = Library(ctx.lib_dir)
+        try:
+            lib.get(pid)
+            fields = {k: b[k] for k in ("title", "authors", "year", "venue", "url", "finding", "status", "claims_from_full_text") if k in b}
+            if "claims" in b:
+                fields["claims"] = [c for c in (b["claims"].splitlines() if isinstance(b["claims"], str) else b["claims"])]
+            if "title" in fields and not str(fields["title"]).strip():
+                raise DataError("A paper needs a title.")
+            lib.update(pid, **fields)
+        except KeyError:
+            return fail("No such paper.", 404)
+        except ValueError as e:
+            raise DataError(str(e))
+        return {"ok": True}
+
+    @app.post("/api/papers/{pid}/delete")
+    def paper_delete(pid: str):
+        if not PAPER_ID.match(pid):
+            return fail("No such paper.", 404)
+        try:
+            Library(ctx.lib_dir).delete(pid)
+        except KeyError:
+            return fail("No such paper.", 404)
+        return {"ok": True}

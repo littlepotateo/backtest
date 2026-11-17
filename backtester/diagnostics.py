@@ -30,8 +30,12 @@ def _reach(url: str, label: str) -> dict:
         with urllib.request.urlopen(req, timeout=15, context=ssl_context()) as r:
             code = r.status
         return _check(f"Reach {label}", True, f"answered HTTP {code} in {time.time() - t0:.1f}s")
-    except urllib.error.HTTPError as e:                     # the server answered: the connection works
-        return _check(f"Reach {label}", e.code < 500, f"answered HTTP {e.code} in {time.time() - t0:.1f}s")
+    except urllib.error.HTTPError as e:                     # the server answered, so the connection works; the code says if it helped
+        hint = ""
+        if e.code == 429:
+            hint = ("The service is limiting requests from this network. For paper search, add a free key under Search settings "
+                    "on the Research page; for prices, wait and try again.")
+        return _check(f"Reach {label}", e.code < 400, f"answered HTTP {e.code} in {time.time() - t0:.1f}s", hint)
     except (urllib.error.URLError, socket.timeout, TimeoutError, ssl.SSLError, ConnectionError) as e:
         err = explain_network_error(e, label)
         return _check(f"Reach {label}", False, str(err))

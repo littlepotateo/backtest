@@ -77,8 +77,10 @@ def client(project):
 
 def test_pages_render_with_real_content(client):
     home = client.get("/")
-    assert home.status_code == 200 and "20260101-00000" in home.text and "Trend" in home.text
-    assert "not validated" in home.text                              # the unvalidated run says so
+    assert home.status_code == 200 and "Latest results" in home.text and "Trend" in home.text      # recent runs on the home page
+    listing = client.get("/runs")
+    assert listing.status_code == 200 and "20260101-00000" in listing.text and "Trend" in listing.text
+    assert "not validated" in listing.text                           # the unvalidated run says so
     page = client.get("/run/20260101-000001-Trend")
     assert page.status_code == 200
     for text in ("Total return", "Monthly returns", "Does it hold up?", 'id="chart-data"', "Re-run with changes"):
@@ -206,5 +208,5 @@ def test_research_page_shows_papers_and_links_runs(project):
     pid = lib.add("A Test Paper", authors="Someone", year=2020, claims=["it works"])
     lib.link_run(pid, project / "runs" / "20260101-000001-Trend")
     page = TestClient(create_app(project)).get("/research").text
-    assert "A Test Paper" in page and "claims from the abstract only" in page and "/run/20260101-000001-Trend" in page
+    assert "A Test Paper" in page and "abstract only" in page and "from the abstract only" in page and "/run/20260101-000001-Trend" in page
     assert "<script>" not in page                                    # raw HTML in notes is escaped

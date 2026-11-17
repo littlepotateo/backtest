@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import re
 from pathlib import Path
+from types import SimpleNamespace
 
 import plotly
 from fastapi import FastAPI, HTTPException, Request
@@ -15,9 +17,15 @@ from fastapi.templating import Jinja2Templates
 from backtester import paths
 from backtester.analysis.findings import ALL_TESTS, CHEAP_TESTS
 from backtester.research import Library
+from backtester.research.library import STATUSES
+from backtester.data import service
+from backtester.data.cache import Cache
 from backtester.web import data as D
-from backtester.web import surfaces
+from backtester.web import routes, surfaces
+from backtester.web import strategies as S
+from backtester.web.glossary import GLOSSARY
 from backtester.web.jobs import BadRequest, Jobs
+from backtester.web.tasks import Tasks
 
 HERE = Path(__file__).parent
 PLOTLY_JS = Path(plotly.__file__).parent / "package_data" / "plotly.min.js"
@@ -37,7 +45,11 @@ def create_app(root: str | Path | None = None) -> FastAPI:
     app = FastAPI(title="Strategy backtester", docs_url=None, redoc_url=None)
     templates = Jinja2Templates(directory=str(HERE / "templates"))
     templates.env.filters.update(pct=pct, num=num)
+    templates.env.globals["glossary"] = GLOSSARY
     jobs = Jobs(root, runs_dir, cache_dir)
+    tasks = Tasks()
+    env = SimpleNamespace(root=root, cache_dir=cache_dir, runs_dir=runs_dir, lib_dir=lib_dir, tasks=tasks)
+    cache = Cache(cache_dir)
 
     @app.middleware("http")
     async def same_origin_posts(request: Request, call_next):
@@ -65,8 +77,26 @@ def create_app(root: str | Path | None = None) -> FastAPI:
 
     # --- pages ------------------------------------------------------------------------
     @app.get("/", response_class=HTMLResponse)
+    def home(request: Request):
+        datasets = service.dataset_table(cache)
+        listing = D.list_runs(runs_dir)
+        papers = Library(lib_dir).list()
+        return page(request, "home.html", datasets=datasets, has_rates=cache.has("^IRX", "1d"),
+                    stale=[d for d in datasets if d["stale"]], runs=listing[:5], n_runs=len(listing),
+                    papers=papers, strategies=S.list_strategies(root))
+
+    @app.get("/runs", response_class=HTMLResponse)
     def runs(request: Request):
         return page(request, "runs.html", runs=D.list_runs(runs_dir))
+
+    @app.get("/data", response_class=HTMLResponse)
+    def data_page(request: Request):
+        return page(request, "data.html", datasets=service.dataset_table(cache), has_rates=cache.has("^IRX", "1d"))
+
+    @app.get("/new", response_class=HTMLResponse)
+    def new_backtest(request: Request, strategy: str = ""):
+        return page(request, "new.html", strategies=S.list_strategies(root), selected=strategy,
+                    all_tests=ALL_TESTS, default_tests=CHEAP_TESTS)
 
     @app.get("/run/{run_id}", response_class=HTMLResponse)
     def run(request: Request, run_id: str):
@@ -121,8 +151,7 @@ def create_app(root: str | Path | None = None) -> FastAPI:
                             **D.series_json(rb["equity"] / rb["initial"])}}
         return page(request, "compare.html", listing=listing, a=a, b=b, ra=ra, rb=rb, charts=charts)
 
-    @app.get("/research", response_class=HTMLResponse)
-    def research(request: Request):
+    def library_context() -> dict:
         lib = Library(lib_dir)
         papers = []
         for p in lib.list():
@@ -130,7 +159,24 @@ def create_app(root: str | Path | None = None) -> FastAPI:
             papers.append({**p, "comparison_html": D.render_markdown(lib.compare(p["id"])),
                            "notes_html": D.render_markdown(notes.read_text()) if notes.exists() else "",
                            "run_ids": [Path(x["run"]).name for x in p["runs"]]})
-        return page(request, "research.html", papers=papers)
+        return {"papers": papers, "statuses": STATUSES}
+
+    @app.get("/research", response_class=HTMLResponse)
+    def research(request: Request):
+        return page(request, "research.html", **library_context())
+
+    @app.get("/research/library", response_class=HTMLResponse)
+    def research_library(request: Request):
+        return templates.TemplateResponse(request, "_library.html", library_context())
+
+    @app.get("/research/file/{name}")
+    def research_file(name: str):
+        if not re.match(r"^[a-z0-9][a-z0-9-]{0,120}\.pdf$", name):
+            raise HTTPException(404, "no such file")
+        f = (lib_dir / "files" / name).resolve()
+        if f.parent != (lib_dir / "files").resolve() or not f.is_file():
+            raise HTTPException(404, "no such file")
+        return FileResponse(f, media_type="application/pdf", headers={"X-Content-Type-Options": "nosniff"})
 
     # --- re-runs ----------------------------------------------------------------------
     @app.get("/rerun/{run_id}", response_class=HTMLResponse)
@@ -152,7 +198,7 @@ def create_app(root: str | Path | None = None) -> FastAPI:
         try:
             return RedirectResponse(f"/jobs/{jobs.start(form)}", status_code=303)
         except BadRequest as e:
-            return HTMLResponse(f"<p>Could not start: {e}</p><p><a href='javascript:history.back()'>Back</a></p>", status_code=400)
+            return templates.TemplateResponse(request, "error.html", {"nav": "/new", "title": "Could not start the run", "message": str(e)}, status_code=400)
 
     @app.get("/jobs/{job_id}", response_class=HTMLResponse)
     def job_page(request: Request, job_id: str):
@@ -161,4 +207,5 @@ def create_app(root: str | Path | None = None) -> FastAPI:
         except BadRequest:
             raise HTTPException(404, "no such job")
 
+    routes.register(app, env)
     return app

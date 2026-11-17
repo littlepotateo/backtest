@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status, term %}
+{% block title %}Home{% endblock %}
+{% block main %}
+<h1>Strategy backtester</h1>
+<p class="sub">Test a trading or investment idea on past prices, check whether the result can be trusted, and read it in plain language. Everything below works from this page.</p>
+
+<div class="steps">
+  <div class="step">
+    <span class="num">1</span><h3>Get data</h3>
+    <p>Prices (and interest rates) for the symbols you want to test.</p>
+    {% if datasets %}{{ status('ok', datasets|length ~ ' datasets saved') }}{% else %}{{ status('wait', 'No data yet') }}{% endif %}
+    {% if datasets and not has_rates %}{{ status('warn', 'Interest rates missing') }}{% endif %}
+    {% if stale %}{{ status('warn', stale|length ~ ' out of date') }}{% endif %}
+    <div class="actions"><a class="btn {{ 'primary' if not datasets }}" href="/data">{{ 'Add data' if not datasets else 'Manage data' }}</a></div>
+  </div>
+  <div class="step">
+    <span class="num">2</span><h3>Run a backtest</h3>
+    <p>Pick a strategy, check its data is ready, and run it with all the safety checks.</p>
+    {% if strategies %}{{ status('ok', strategies|length ~ ' strategies available') }}{% else %}{{ status('warn', 'No strategies in the strategies folder') }}{% endif %}
+    <div class="actions"><a class="btn {{ 'primary' if datasets and not n_runs }}" href="/new">New backtest</a></div>
+  </div>
+  <div class="step">
+    <span class="num">3</span><h3>Read the results</h3>
+    <p>Charts, the worst falls, whether it beat luck, and what to be careful about.</p>
+    {% if n_runs %}{{ status('ok', n_runs ~ ' results saved') }}{% else %}{{ status('wait', 'Nothing to read yet') }}{% endif %}
+    <div class="actions"><a class="btn" href="/runs">Results</a>{% if n_runs %}<a class="btn" href="/compare">Compare two</a>{% endif %}</div>
+  </div>
+  <div class="step">
+    <span class="num">4</span><h3>Research papers</h3>
+    <p>Search for papers, or drop in PDFs, and keep track of which ones you tested.</p>
+    {% if papers %}{{ status('ok', papers|length ~ ' papers in the library') }}{% else %}{{ status('wait', 'Library is empty') }}{% endif %}
+    <div class="actions"><a class="btn" href="/research">Open library</a></div>
+  </div>
+</div>
+
+{% if runs %}
+<h2>Latest results</h2>
+<div class="card scroll"><table>
+  <thead><tr><th>Strategy</th><th>Period</th><th class="n">{{ term('total_return', 'Total return') }}</th><th class="n">{{ term('sharpe', 'Sharpe') }}</th><th class="n">{{ term('drawdown', 'Worst fall') }}</th><th>{{ term('evidence', 'Evidence') }}</th></tr></thead>
+  <tbody>{% for r in runs %}<tr><td><a href="/run/{{ r.id }}">{{ r.strategy }}</a> <span class="muted small">{{ r.universe }}</span></td><td>{{ r.start }} to {{ r.end }}</td>
+    <td class="n">{{ r.metrics.total_return|pct }}</td><td class="n">{{ r.metrics.sharpe|num }}</td><td class="n">{{ r.metrics.max_drawdown|pct }}</td>
+    <td>{% if r.validated %}{{ r.trust }}{% else %}<span class="muted">not checked</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+{% endif %}
+
+<h2>What this can and cannot do from the browser</h2>
+<div class="help">
+  <p><strong>You can:</strong> download prices and rates, import your own price files, run any strategy in the strategies folder, read and compare results, re-run with different settings, search papers and drop PDFs into the library.</p>
+  <p><strong>Writing a new strategy from a description or a paper</strong> needs Claude Code (it writes the strategy file). New strategy files appear here automatically once they are in the <code>strategies/</code> folder.</p>
+</div>
+{% endblock %}

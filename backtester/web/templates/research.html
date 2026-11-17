@@ -1,18 +1,37 @@
 {% extends "base.html" %}
 {% block title %}Research{% endblock %}
+{% block scripts %}<script src="/static/research.js" defer></script>{% endblock %}
 {% block main %}
 <h1>Research library</h1>
-<p class="sub">Papers found through Consensus, the results they claim, and the runs made to test them. Add papers with <code>bt paper add</code>; the <code>backtest</code> skill describes the workflow.</p>
-{% if not papers %}<div class="card">No papers saved yet.</div>{% endif %}
-{% for p in papers %}
-<div class="card prose">
-  <h3 style="margin-top:0">{{ p.title }}</h3>
-  <p>{{ p.authors }} {% if p.year %}({{ p.year }}){% endif %} {{ p.venue }} {% if p.url %}· <a href="{{ p.url }}">source</a>{% endif %}</p>
-  <p><span class="chip">Status: {{ p.status }}</span> {% if not p.claims_from_full_text %}<span class="chip">claims from the abstract only</span>{% endif %}</p>
-  {% if p.finding %}<p>{{ p.finding }}</p>{% endif %}
-  {% if p.run_ids %}<p>Runs: {% for rid in p.run_ids %}<a href="/run/{{ rid }}">{{ rid[:15] }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
-  <details><summary>Claimed versus replicated</summary>{{ p.comparison_html|safe }}</details>
-  {% if p.notes_html %}<details><summary>Replication notes</summary>{{ p.notes_html|safe }}</details>{% endif %}
+<p class="sub">Collect papers, note the results they claim, and keep track of which ones you have tested.</p>
+
+<div class="grid2">
+  <div>
+    <h3 style="margin-top:0">Drop a paper</h3>
+    <div class="drop" id="paper-drop" tabindex="0" role="button" aria-label="Drop PDF files here, or press Enter to choose files">
+      <strong>Drag and drop PDF files here</strong>
+      The text is read so Claude can use it; the title, year and abstract are filled in where they can be found.
+      <input id="paper-file" type="file" accept="application/pdf,.pdf" multiple hidden>
+    </div>
+    <div id="upload-results"></div>
+  </div>
+  <div>
+    <h3 style="margin-top:0">Search published papers</h3>
+    <form id="search-form" class="row">
+      <input id="search-q" type="text" placeholder="e.g. momentum trading strategy" style="max-width:none" class="grow" required minlength="3">
+      <button class="primary" type="submit" id="search-btn">Search</button>
+    </form>
+    <p class="small muted">Searches OpenAlex, a free index of scholarly work. Results show abstracts, not full text; to read a paper in full, download its PDF and drop it on the left.</p>
+    <details id="search-settings"><summary>Search settings (optional)</summary>
+      <p class="small">OpenAlex gives each network a free daily allowance. If searches say it is used up, get a free key from openalex.org and save it here. It stays on this computer and is never shown again.</p>
+      <div class="row"><input id="openalex-key" type="password" autocomplete="off" placeholder="Paste a key" style="max-width:300px">
+        <button type="button" id="save-key">Save key</button><button type="button" id="clear-key">Remove key</button>
+        <span id="key-status" class="small muted"></span></div>
+    </details>
+  </div>
 </div>
-{% endfor %}
+<div id="search-results"></div>
+
+<h2>Your library</h2>
+<div id="library">{% include "_library.html" %}</div>
 {% endblock %}

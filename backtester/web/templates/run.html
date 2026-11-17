@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import term %}
 {% block title %}{{ r.meta.strategy }} · {{ r.id[:15] }}{% endblock %}
 {% block main %}
 {% set m = r.metrics %}
@@ -9,20 +10,23 @@
 <div class="row">
   <a class="btn primary" href="/rerun/{{ r.id }}">Re-run with changes</a>
   <a class="btn" href="/compare?a={{ r.id }}">Compare with another run</a>
+  <button type="button" class="danger" id="delete-run" data-id="{{ r.id }}">Delete this result</button>
   {% if r.trust %}<span class="chip" title="How well the tests support the result; not a forecast">Evidence: {{ r.trust[0] }}</span>
   <span class="chip">{{ r.evidence_flags|selectattr('severity','equalto','high')|list|length }} serious · {{ r.evidence_flags|selectattr('severity','equalto','medium')|list|length }} moderate concerns</span>
   {% if r.risk_flags %}<span class="chip" title="{{ r.risk_flags|map(attribute='message')|join(' ') }}">Risk warning: see below</span>{% endif %}
   {% else %}<span class="chip">not validated: run <code>bt validate</code></span>{% endif %}
 </div>
 
+<nav class="jump" aria-label="On this page"><a href="#explanation">Summary</a><a href="#equity-h">Growth</a><a href="#monthly-h">Monthly</a>
+  {% if v %}<a href="#tests-h">Tests</a>{% endif %}{% if option_dates %}<a href="#surfaces-h">Option surfaces</a>{% endif %}<a href="#trades-h">Trades</a></nav>
 <div class="tiles">
-  <div class="tile"><div class="label">Total return</div><div class="value">{{ m.total_return|pct }}</div>
+  <div class="tile"><div class="label">{{ term("total_return", "Total return") }}</div><div class="value">{{ m.total_return|pct }}</div>
     <div class="note">{% if m.benchmark_total_return is not none %}{{ r.meta.benchmark }} buy and hold: {{ m.benchmark_total_return|pct }}{% else %}{{ m.cagr|pct }} a year{% endif %}</div></div>
-  <div class="tile"><div class="label">Annual return</div><div class="value">{{ m.cagr|pct }}</div><div class="note">volatility {{ m.volatility|pct }}</div></div>
-  <div class="tile"><div class="label">Sharpe ratio</div><div class="value">{{ m.sharpe|num }}</div><div class="note">Sortino {{ m.sortino|num }}</div></div>
-  <div class="tile"><div class="label">Worst fall</div><div class="value">{{ m.max_drawdown|pct }}</div>
+  <div class="tile"><div class="label">{{ term("annual", "Annual return") }}</div><div class="value">{{ m.cagr|pct }}</div><div class="note">volatility {{ m.volatility|pct }}</div></div>
+  <div class="tile"><div class="label">{{ term("sharpe", "Sharpe ratio") }}</div><div class="value">{{ m.sharpe|num }}</div><div class="note">Sortino {{ m.sortino|num }}</div></div>
+  <div class="tile"><div class="label">{{ term("drawdown", "Worst fall") }}</div><div class="value">{{ m.max_drawdown|pct }}</div>
     <div class="note">{% if m.benchmark_max_drawdown is not none %}{{ r.meta.benchmark }}: {{ m.benchmark_max_drawdown|pct }}{% else %}longest {{ m.longest_drawdown_days }} days{% endif %}</div></div>
-  <div class="tile"><div class="label">Closed trades</div><div class="value">{{ m.trades }}</div><div class="note">win rate {{ m.win_rate|pct(0) }}</div></div>
+  <div class="tile"><div class="label">{{ term("trades", "Closed trades") }}</div><div class="value">{{ m.trades }}</div><div class="note">win rate {{ m.win_rate|pct(0) }}</div></div>
 </div>
 
 <h2 id="explanation">What the backtest says</h2>
@@ -38,7 +42,7 @@
   <p class="legend-note">Table view of the same data: monthly returns below.</p>
 </div>
 
-<h2>Monthly returns</h2>
+<h2 id="monthly-h">Monthly returns</h2>
 <div class="card scroll">
 <table class="heat">
   <thead><tr><th>Year</th>{% for mo in ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}<th class="n">{{ mo }}</th>{% endfor %}<th class="n">Year</th></tr></thead>
@@ -57,7 +61,8 @@
 </div>
 
 {% if v %}
-<h2>Does it hold up?</h2>
+<h2 id="tests-h">Does it hold up?</h2>
+<p class="muted small">Each test tries to break the result. {{ term("walk_forward", "Walk-forward") }}, {{ term("monte_carlo", "Monte Carlo") }} and {{ term("kelly", "Kelly sizing") }} are explained when you hover over them.</p>
 {% if v.walkforward %}
 <div class="card"><h3>Walk-forward: tuned on the past, traded on the next year</h3>
   <div id="walkforward" class="chart" role="img" aria-label="Sharpe ratio in-sample and out-of-sample for each walk-forward window"></div>
@@ -90,7 +95,7 @@
 {% endif %}
 
 {% if option_dates %}
-<h2>Option surfaces (3D)</h2>
+<h2 id="surfaces-h">Option surfaces (3D)</h2>
 <div class="card">
   <div class="row">
     <label for="surf-kind">Show</label>
@@ -112,12 +117,21 @@
 </div>
 {% endif %}
 
-<h2>Latest trades</h2>
+<h2 id="trades-h">Latest trades</h2>
 <div class="card scroll"><table>
   <thead><tr><th>Symbol</th><th>Side</th><th class="n">Quantity</th><th>Opened</th><th>Closed</th><th class="n">Entry</th><th class="n">Exit</th><th class="n">Profit</th><th class="n">Return</th></tr></thead>
   <tbody>{% for t in trades %}<tr><td>{{ t.symbol }}</td><td>{{ t.side }}</td><td class="n">{{ '{:,.0f}'.format(t.qty) }}</td><td>{{ t.entry_time|string|truncate(10, True, '') }}</td><td>{{ t.exit_time|string|truncate(10, True, '') }}</td>
     <td class="n">{{ '{:,.2f}'.format(t.entry_price) }}</td><td class="n">{{ '{:,.2f}'.format(t.exit_price) }}</td><td class="n">{{ '{:,.0f}'.format(t.pnl) }}</td><td class="n">{{ t['return']|pct }}</td></tr>{% endfor %}</tbody></table>
   <p class="legend-note">The most recent 100 closed trades. For rebalanced portfolios every partial sale counts as a trade. Option quantities are in share-equivalents (100 per contract).</p></div>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const b = document.getElementById('delete-run');
+  if (b) b.addEventListener('click', async () => {
+    if (!confirm('Delete this result and its saved files? This cannot be undone.')) return;
+    try { await API.post('/api/runs/' + b.dataset.id + '/delete'); window.location.assign('/runs'); } catch (e) { toast(e.message, 'bad', 0); }
+  });
+});
+</script>
 <script id="chart-data" type="application/json">{{ charts|tojson }}</script>
 {% endblock %}
