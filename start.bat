@@ -2,6 +2,15 @@
 rem Starts the dashboard on Windows. The first run sets everything up (about a minute).
 cd /d "%~dp0"
 
+rem Bring the program up to date first (scripts\update.bat never stops the start-up), then run this file again from the top,
+rem because the update may have replaced it. Set BACKTEST_NO_UPDATE=1 to skip the update.
+if not defined BACKTEST_UPDATED (
+  set BACKTEST_UPDATED=1
+  call "%~dp0scripts\update.bat"
+  call "%~f0" %*
+  exit /b
+)
+
 if exist .venv\Scripts\python.exe goto have_venv
 set PY=
 for %%V in (3.13 3.12 3.11) do (
