@@ -36,7 +36,7 @@ def _dict(value) -> dict:
 def describe_file(path: Path, root: Path) -> list[dict]:
     """One entry per Strategy subclass in the file."""
     try:
-        tree = ast.parse(path.read_text())
+        tree = ast.parse(path.read_text(encoding="utf-8"))
     except Exception:                      # syntax errors, null bytes, bad encodings, unreadable files: not a strategy we can list
         return []
     out = []

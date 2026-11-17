@@ -71,9 +71,10 @@ Codes are stable: a code never changes meaning. The test suite checks that every
 | BT-NET-429 | The service is limiting requests. | Wait a minute and try again. |
 | BT-NET-500 | The service returned another HTTP error. | Try again later. |
 
-## Project files (`BT-LIB`)
+## Project files (`BT-LIB`, `BT-FILE`)
 
 | Code | Meaning | What to do |
 |---|---|---|
 | BT-LIB-000 | The paper library files cannot be read (no more specific code). | Read the message. |
 | BT-LIB-001 | `research/library/index.json` is damaged and cannot be read. | Open it in a text editor to fix it, or rename it to start an empty library; saved PDFs are kept. |
+| BT-FILE-001 | A file could not be read or written because of a text-encoding problem (typical on Windows with letters such as the "fi" ligature in a paper). | Restart with `start.bat` / `start.sh`, which switch the program to UTF-8. |

@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import io
+import logging
 import re
 
 from backtester.errors import CodedError
+
+# pypdf logs a warning for every font it cannot fully decode; for reading a paper that is noise, not a problem
+logging.getLogger("pypdf").setLevel(logging.ERROR)
 
 MAX_BYTES = 60 * 1024 * 1024
 MAX_PAGES = 60

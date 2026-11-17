@@ -80,7 +80,7 @@ def record_trials(ledger: str | Path, configs: list[dict], table: pd.DataFrame,
     path = Path(ledger)
     path.parent.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    with path.open("a") as f:
+    with path.open("a", encoding="utf-8") as f:
         for i, params in enumerate(configs):
             f.write(json.dumps({
                 "params": params, "recorded": stamp,
@@ -94,4 +94,4 @@ def trial_count(ledger: str | Path) -> int:
     path = Path(ledger)
     if not path.exists():
         return 0
-    return len({params_key(json.loads(line)["params"]) for line in path.read_text().splitlines() if line.strip()})
+    return len({params_key(json.loads(line)["params"]) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()})

@@ -16,7 +16,7 @@ from backtester import paths
 from backtester.data.cache import Cache
 from backtester.data.yahoo import explain_network_error, ssl_context
 
-REQUIRED = ["numpy", "pandas", "pyarrow", "scipy", "fastapi", "uvicorn", "jinja2", "markdown", "plotly", "multipart", "certifi", "pypdf"]
+REQUIRED = ["numpy", "pandas", "pyarrow", "scipy", "fastapi", "uvicorn", "jinja2", "markdown", "plotly", "multipart", "certifi", "pypdf", "fontTools"]
 
 
 def missing_packages() -> list[str]:

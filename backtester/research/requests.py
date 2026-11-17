@@ -46,7 +46,7 @@ class Requests:
 
     def _save(self, req: dict) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
-        self._path(req["id"]).write_text(json.dumps(req, indent=2, sort_keys=True))
+        self._path(req["id"]).write_text(json.dumps(req, indent=2, sort_keys=True), encoding="utf-8")
 
     def create(self, query: str, notes: str = "") -> dict:
         query, notes = " ".join((query or "").split()), " ".join((notes or "").split())
@@ -64,7 +64,7 @@ class Requests:
         path = self._path(rid)
         if not path.exists():
             raise KeyError(f"no request {rid!r}")
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
 
     def list(self) -> list[dict]:
         if not self.root.exists():
@@ -72,7 +72,7 @@ class Requests:
         reqs = []
         for p in self.root.glob("*.json"):
             try:
-                r = json.loads(p.read_text())
+                r = json.loads(p.read_text(encoding="utf-8"))
             except (ValueError, OSError):
                 continue                   # a half-written or damaged request file is skipped
             if isinstance(r, dict) and REQUEST_ID.match(str(r.get("id", ""))) and r.get("query"):

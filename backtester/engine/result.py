@@ -62,7 +62,7 @@ class RunResult:
         self.fills.to_parquet(d / "fills.parquet")
         self.trades.to_parquet(d / "trades.parquet")
         self.orders.to_parquet(d / "orders.parquet")
-        (d / "meta.json").write_text(json.dumps(self.meta, indent=2, default=str))
+        (d / "meta.json").write_text(json.dumps(self.meta, indent=2, default=str), encoding="utf-8")
         return d
 
     @classmethod
@@ -73,4 +73,4 @@ class RunResult:
                    fills=pd.read_parquet(d / "fills.parquet"),
                    trades=pd.read_parquet(d / "trades.parquet"),
                    orders=pd.read_parquet(d / "orders.parquet"),
-                   meta=json.loads((d / "meta.json").read_text()))
+                   meta=json.loads((d / "meta.json").read_text(encoding="utf-8")))

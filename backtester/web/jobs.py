@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -78,21 +79,22 @@ class Jobs:
         self.dir.mkdir(parents=True, exist_ok=True)
         job_id = uuid.uuid4().hex[:12]
         out = self.dir / f"{job_id}.log"
-        proc = subprocess.Popen(cmd, cwd=self.root, stdout=out.open("w"), stderr=subprocess.STDOUT)
+        proc = subprocess.Popen(cmd, cwd=self.root, stdout=out.open("w", encoding="utf-8"), stderr=subprocess.STDOUT,
+                                env={**os.environ, "PYTHONUTF8": "1"})
         self.procs[job_id] = proc
         self._save(job_id, {"id": job_id, "started": time.time(), "cmd": cmd[3:], "status": "running",
                             "strategy": form.get("strategy"), "pid": proc.pid})
         return job_id
 
     def _save(self, job_id: str, data: dict) -> None:
-        (self.dir / f"{job_id}.json").write_text(json.dumps(data))
+        (self.dir / f"{job_id}.json").write_text(json.dumps(data), encoding="utf-8")
 
     def status(self, job_id: str) -> dict:
         if not JOB_ID.match(job_id) or not (self.dir / f"{job_id}.json").exists():
             raise BadRequest("no such job")
-        job = json.loads((self.dir / f"{job_id}.json").read_text())
+        job = json.loads((self.dir / f"{job_id}.json").read_text(encoding="utf-8"))
         log = (self.dir / f"{job_id}.log")
-        text = log.read_text() if log.exists() else ""
+        text = log.read_text(encoding="utf-8") if log.exists() else ""
         proc = self.procs.get(job_id)
         if job["status"] == "running":
             code = proc.poll() if proc else (None if (time.time() - job["started"]) < 1800 else -1)

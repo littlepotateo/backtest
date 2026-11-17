@@ -22,7 +22,7 @@ def _file() -> Path:
 
 def load() -> dict:
     try:
-        return json.loads(_file().read_text())
+        return json.loads(_file().read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
 
@@ -42,7 +42,7 @@ def set_value(name: str, value: str) -> None:
     else:
         data.pop(name, None)
     f = _file()
-    f.write_text(json.dumps(data))
+    f.write_text(json.dumps(data), encoding="utf-8")
     try:
         f.chmod(0o600)
     except OSError:
