@@ -161,6 +161,6 @@
 
 ## Self-review notes
 
-- Spec coverage: decisions 1-8 map to Tasks 5-6 (1-3), 1-2 (4-5), 3 and 1 (6), 4 (7), 3 (8); non-goals are listed in the spec and not planned.
+- Spec coverage: decisions 1-3 (Windows, bundled Python, installer and draft releases) are Tasks 5-6; 4 (data/program split) Task 1; 5 (no console window) Task 2; 6 (first run) Tasks 1 and 3; 7 (updates) Task 4; 8 (Claude optional) Task 3. Non-goals are in the spec and not planned.
 - Types and names used across tasks (`default_home`, `seed_home`, `on_quit`, `is_packaged`, `Release`, `fetch_starter`, `BACKTEST_NO_STARTER`) are defined in the task that produces them.
 - The one switch Task 6 needs from Task 3 (`BACKTEST_NO_STARTER`) is stated in both.
