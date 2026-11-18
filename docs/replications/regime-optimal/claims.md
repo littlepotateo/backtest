@@ -61,10 +61,23 @@ copied from the tables.
 | Value | 0.742 | 0.814 | (1.00, 0.62, -0.24, 0.36) |
 | Growth | 0.237 | 0.564 | (1.00, 0.23, 0.04, 0.35) |
 
-## Tables 4, 7 and 8 (not replicated)
+## Tables 4, 7 and 8 (pp. 18, 25, 29; replicated in the second pass, see results.md section D)
 
-- Table 4 (14 countries, two regimes): average TSM 0.054, OPT 0.295, DIF 0.241. Table 7 (four regimes): average DSM 0.192, OPT 0.319, DIF 0.127.
-- Table 8 (18 diversified portfolio datasets, training 1963-07 to 1997-12, evaluation 1998-01 to 2025-12): average two-regime TSM 0.208, OPT 0.506, DIF 0.299; four-regime DSM 0.496, OPT 0.628, DIF 0.132.
+Table 4 (14 countries, two states; training 1975-01 to 2003-12, evaluation to 2025-12 as the paper states): TSM / OPT / wBe
+Australia 0.095 / 0.399 / 0.54; Belgium 0.078 / 0.280 / 0.14; France -0.239 / 0.086 / 0.01; Germany 0.124 / 0.332 / -0.07;
+Hong Kong 0.083 / 0.310 / 0.26; Italy -0.226 / -0.084 / -0.30; Japan 0.165 / 0.269 / -0.37; Netherlands 0.168 / 0.444 / 0.31;
+Norway 0.001 / 0.224 / -0.08; Singapore 0.024 / 0.438 / 0.38; Spain 0.123 / 0.238 / -0.40; Sweden 0.071 / 0.425 / 0.43;
+Switzerland 0.127 / 0.419 / 0.07; UK 0.158 / 0.350 / 0.43; average 0.054 / 0.295 / 0.10 (DIF 0.241).
+
+Table 7 (four states, same countries): DSM / OPT / (wBu, wCo, wBe, wRe) are in `strategies/regime_optimal/replicate_extra.py` (`PAPER_T7`);
+average DSM 0.192, OPT 0.319, DIF 0.127, average weights (0.89, 0.69, -0.03, 0.27).
+
+Table 8 (18 datasets, training 1963-07 to 1997-12, evaluation 1998-01 to 2025-12): the 18 rows are in `PAPER_T8`; averages
+two-state TSM 0.208, OPT 0.506, DIF 0.299; four-state DSM 0.496, OPT 0.628, DIF 0.132. The strategies are equation 21 and its DSM analogue:
+equal-weight average over assets, regimes per asset, no volatility scaling (p. 26).
+
+Figures 1 and 2 (pp. 16, 22): for each start month t from 1969-01 to 2012-12 the Sharpe ratio of OPT and TSM (Figure 1) or DSM (Figure 2)
+from t to 2025-12, with the OPT weights fixed on 1926-07 to 1968-12; OPT is above in every month and the gap widens with t.
 
 ## What the paper does not report
 

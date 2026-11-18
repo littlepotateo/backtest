@@ -51,3 +51,9 @@ def test_dark_mode_changes_the_template():
 def test_dark_palette_matches_the_dashboard():
     fig = viz.equity_and_drawdown(series(), series(seed=2), dark=True)
     assert fig.data[0].line.color == "#3987e5" and fig.data[2].line.color == "#d95926"
+
+
+def test_rolling_sharpe_accepts_a_monthly_period_index():
+    idx = pd.period_range("1969-01", periods=5, freq="M")
+    fig = viz.rolling_sharpe(pd.Series([0.5, 0.6, 0.55, 0.7, 0.65], index=idx), pd.Series([0.4] * 5, index=idx), names=("OPT", "TSM"))
+    assert len(fig.data) == 2 and pd.Timestamp(fig.data[0].x[0]) == pd.Timestamp("1969-01-01")

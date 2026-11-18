@@ -55,10 +55,17 @@ close; the weight is set at the close of the last business day of the month.
 
 See `docs/replications/regime-optimal/claims.md` (quoted from the paper with page numbers).
 
+## Second pass (Tables 4, 7, 8 and Figures 1-2)
+
+Code: `french.py` (`country_returns`, `portfolio_dataset`), `diversified.py` (equation 21, rolling-start Sharpe), `replicate_extra.py`.
+Added assumptions: country returns are Dollar-return `Mkt` series less the US T-bill rate; diversified strategies average the per-asset
+strategies with equal weights, per-asset regimes and weights, per-asset DSM mixing coefficients; dataset 5 keeps all 35 columns of French's file
+(the paper says 25). Results and the data-vintage finding (the paper's country results are matched exactly when the window ends 2024-12) are in
+`docs/replications/regime-optimal/results.md`, section D.
+
 ## Not replicated
 
-- Table 4 and Table 7 (14 developed international markets, Jan 1975 - Dec 2025) and Table 8 (18 diversified portfolio datasets):
-  not attempted; the data exist in the same library but this was a first replication of the single-asset results.
-- Figures 1 and 2 (rolling out-of-sample Sharpe ratios) were not reproduced.
+- Table 8 matches in direction and approximately in size, not exactly (average OPT 0.543 against 0.506); the cause is not identified.
+- Tables 4 and 7 match only when the evaluation window ends 2024-12, not 2025-12 as the paper states.
 - The paper's Table 3 / Table 6 "Value" and "Growth" rows match our Growth and Value rows (see `replicate_tables.py` output): the labels
   appear swapped in the paper; not confirmed with the author.

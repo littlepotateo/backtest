@@ -24,7 +24,8 @@ def _layout(fig: go.Figure, title: str, dark: bool) -> go.Figure:
 
 
 def _x(s: pd.Series):
-    return [pd.Timestamp(i) if not isinstance(i, (int, np.integer)) else i for i in s.index]
+    idx = s.index.to_timestamp() if isinstance(s.index, pd.PeriodIndex) else s.index
+    return [pd.Timestamp(i) if not isinstance(i, (int, np.integer)) else i for i in idx]
 
 
 def equity_and_drawdown(equity: pd.Series, benchmark: pd.Series | None = None, title: str = "Equity and drawdown",

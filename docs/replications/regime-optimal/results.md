@@ -88,3 +88,29 @@ paper in your library (claims as the paper states them, the run linked, status "
 
 Default project costs apply (no commission, 1 basis point slippage per fill, an assumption). Total return 2,909.4%, 6.2% a year,
 engine Sharpe 0.53 (0.559 on monthly returns), worst fall -34.0% against -59.2% for the benchmark, 25 trades.
+
+## D. Second pass: Tables 4, 7, 8 and Figures 1-2 (exact method)
+
+Reproduce with `.venv/bin/python -I strategies/regime_optimal/replicate_extra.py --figures docs/replications/regime-optimal/figures`
+(complete output: `tables_4_7_8_output.txt`). All Sharpe ratios are annualised, weights are estimated on the training window and held fixed.
+
+| Table | Result | Evidence |
+|---|---|---|
+| 4 (14 countries, two states) | **Reproduced exactly** when the evaluation window ends 2024-12: mean absolute difference 0.000 for TSM and for OPT, all 14 Bear weights equal to two decimals; average 0.054 / 0.295 as in the paper | the weights match to two decimals for every country also with the window ending 2025-12, so the training data agree; the paper's country series evidently stop in 2024-12 although its text says 2025-12 |
+| 7 (14 countries, four states) | **Reproduced closely** with the window ending 2024-12: mean absolute difference 0.007 (DSM) and 0.004 (OPT), largest single gap 0.057 (DSM) | most weights identical; Italy, Japan, Spain and Sweden differ by 0.02-0.10 in one or two weights (the in-sample DSM optimiser can settle on a different point) |
+| 4 and 7 with the window ending 2025-12, as the paper states | Not matched: mean absolute difference 0.042 (TSM), 0.060 (OPT) in Table 4 | same weights, different evaluation months |
+| 8 (18 diversified datasets) | **Direction and size reproduced, numbers not.** TSM within 0.008 on average; OPT 0.543 against 0.506 (mean absolute difference 0.037), DSM 0.521 against 0.496, four-state OPT 0.655 against 0.628 | OPT beats TSM in all 18 datasets and four-state OPT beats DSM in all 18, as the paper says; datasets 8, 10 and 13 are the largest misses (OPT 0.562 against 0.494, 0.551 against 0.412, 0.517 against 0.384) |
+| Figures 1, 2 | Reproduced: the first point of Figure 1 is 0.558 (OPT) and 0.413 (TSM), Table 2's 0.559 and 0.413; OPT is above its benchmark at every start month 1969-01 to 2012-12 and the gap widens, as the paper describes | `figures/figure1_*.html`, `figure2_*.html`, opened in a browser, light and dark |
+
+What I tried for Table 8 and could not settle: weights pooled across assets instead of per asset (no better: dataset 13 gives 0.614),
+dataset 5 cut to 25 portfolios (35 in French's file; no better), evaluation ending 2025-06 or 2024-12 (closer for DSM and four-state OPT, not for
+OPT). The remaining gap is therefore not explained by what the paper states; I did not tune anything to close it.
+
+### Assumptions added in this pass
+
+1. Country returns are French's Dollar-return country market returns (first block of the `.Dat` files, `Mkt` column), less the US one-month
+   Treasury bill rate (the paper does not name a risk-free rate for them; with raw returns the difference from the paper is 0.10-0.20).
+2. Table 8 returns are excess over the same rate, equal-weighted across the portfolios of a dataset, regimes and weights per asset (equation 21).
+3. The diversified DSM mixing coefficient is estimated per asset by maximising the in-sample Sharpe ratio, as in the single-asset case.
+4. Dataset 5 is used with all 35 columns of French's file; the paper states 25.
+5. The country data differ in vintage from the paper's (see Table 4).
