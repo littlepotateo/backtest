@@ -1,0 +1,82 @@
+{
+  "backend": "native",
+  "strategy": "IntradayMomentum",
+  "params": {
+    "signal": "r1",
+    "mode": "timing",
+    "gamma": 5.0,
+    "min_obs": 60
+  },
+  "universe": [
+    "SPY"
+  ],
+  "interval": "30m",
+  "config": {
+    "start": null,
+    "end": null,
+    "initial_cash": 100000,
+    "costs": {
+      "per_share": 0.0,
+      "min_per_order": 0.0,
+      "max_pct_of_trade": 0.0,
+      "slippage_bps": 1.0,
+      "sell_value_fee": 2.06e-05,
+      "sell_share_fee": 0.000166,
+      "sell_share_fee_cap": 8.3,
+      "share_fee": 0.000203,
+      "multiplier": 1.0,
+      "confirmed": true
+    },
+    "fill": "close",
+    "max_leverage": 1.0,
+    "allow_short": true,
+    "fractional_shares": false,
+    "use_adjusted": true,
+    "timezone": "America/New_York",
+    "fill_delay_bars": 0,
+    "cash_interest": false,
+    "cash_spread": 0.01,
+    "margin_spread": 0.025,
+    "pay_dividends": true,
+    "option_fee_per_contract": 0.65,
+    "option_fee_min_per_order": 1.0
+  },
+  "period": {
+    "start": "2026-07-31T14:00:00+00:00",
+    "end": "2026-11-17T20:30:00+00:00",
+    "bars": 1000
+  },
+  "data": {
+    "SPY": {
+      "symbol": "SPY",
+      "interval": "30m",
+      "source": "ibkr",
+      "adjusted": "unknown (intraday bars from IBKR, unadjusted last-trade prices)",
+      "bars": 1000,
+      "start": "2026-07-31T14:00:00+00:00",
+      "end": "2026-11-17T20:30:00+00:00",
+      "market": "usa",
+      "security_type": "equity",
+      "lean_resolution": null
+    }
+  },
+  "open_positions": {},
+  "unfilled_orders": {},
+  "warnings": {
+    "orders_reduced_for_buying_power": 1
+  },
+  "records": [],
+  "rebalance_calls": 0,
+  "interest": {
+    "earned": 0.0,
+    "paid": 0.0
+  },
+  "dividends_received": 0.0,
+  "options": null,
+  "notes": [
+    "Orders fill at the close of the bar that generated them. This is optimistic; next-bar-open fills are the default.",
+    "Short borrow fees are not modelled."
+  ],
+  "benchmark": "SPY",
+  "strategy_file": "strategies/intraday_momentum/strategy.py"
+}
