@@ -170,7 +170,7 @@ class _Sim:
         qty = target - pos
         if qty == 0:
             return
-        fee = 0.0 if free else costs.commission(abs(qty), price)
+        fee = 0.0 if free else costs.commission(abs(qty), price) + costs.regulatory_fee(qty, price)
         slip = abs(qty) * abs(price - raw_price)
         self.cash -= qty * price + fee
         self.fills.append((self.now, symbol, qty, price, fee, slip))

@@ -1,14 +1,30 @@
 # Trading cost assumptions used by the engine.
 #
 # Stock commissions: IBKR Lite, as stated by the account holder on 2026-11-14
-# (US-listed stocks and ETFs commission-free). Not read from IBKR's pricing page,
-# which refuses automated access.
+# (US-listed stocks and ETFs commission-free); confirmed on IBKR's commission page on
+# 2026-11-18 ("$0 commissions on US stocks and ETFs with IBKR Lite").
+#
+# Regulatory and clearing fees, read from IBKR's commission page on 2026-11-18
+# (https://www.interactivebrokers.com/en/pricing/commissions-stocks.php, "United States -
+# Third Party Fees"):
+#   SEC transaction fee   USD 0.0000206 * value of aggregate sales        -> sell_value_fee
+#   FINRA trading activity fee: the page shows USD 0.00 per share sold because of a FEE
+#     HOLIDAY from 2026-10-01 to 2026-12-31. The usual rate, USD 0.000166 per share sold
+#     with a cap of USD 8.30 per trade, is used here (UNCONFIRMED: FINRA's own page could
+#     not be read; the rate and cap are from memory of FINRA's schedule)  -> sell_share_fee
+#   FINRA consolidated audit trail fee  USD 0.000003 per share            -> share_fee
+#   NSCC/DTC clearing fee               USD 0.00020 per share             -> share_fee
+# Exchange fees (venue dependent, a fraction of a cent per share) are not included.
 confirmed = true
 
 [stock]
 per_share = 0.0          # USD per share
 min_per_order = 0.0      # USD
 max_pct_of_trade = 0.0
+sell_value_fee = 0.0000206
+sell_share_fee = 0.000166
+sell_share_fee_cap = 8.30
+share_fee = 0.000203     # 0.000003 + 0.00020
 slippage_bps = 1.0       # ASSUMPTION: paid on every fill, in basis points of price
                          # (half the bid/ask spread plus slippage). The main cost under Lite.
 

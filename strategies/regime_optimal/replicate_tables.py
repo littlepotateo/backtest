@@ -82,17 +82,23 @@ def sharpe(R: pd.Series) -> float:
     return float(R.mean() / R.std(ddof=1) * np.sqrt(12))
 
 
-def evaluate(r: pd.Series, train_end: str, four: bool, compound: bool = False, fixed: dict | None = None):
+def strategy_returns(r: pd.Series, train_end: str, four: bool, compound: bool = False) -> dict:
+    """Weights estimated on the training window (up to `train_end`), then held fixed: the monthly out-of-sample returns of the
+    optimal-regime strategy (`opt`) and of its benchmark (`base`: TSM for two states, DSM for four), with the weights."""
     d = table(r, four, compound)
     train = d[d.index <= pd.Period(train_end, "M")]
     test = d[d.index > pd.Period(train_end, "M")]
     states = [1, 2, 3, 4] if four else [0, 1]
     w_opt = opt_weights(train, states)
-    base = ({1: 1.0, 3: -1.0, 2: 0, 4: 0} if four else {1: 1.0, 0: -1.0})
-    w_base = dsm_weights(train) if four else base
-    out = {"opt": sharpe(test.r * test.s.map(w_opt)), "base": sharpe(test.r * test.s.map(w_base)), "w_opt": w_opt, "w_base": w_base,
-           "n_train": len(train), "n_test": len(test)}
-    return out
+    w_base = dsm_weights(train) if four else {1: 1.0, 0: -1.0}
+    return {"opt": test.r * test.s.map(w_opt), "base": test.r * test.s.map(w_base), "w_opt": w_opt, "w_base": w_base,
+            "n_train": len(train), "n_test": len(test)}
+
+
+def evaluate(r: pd.Series, train_end: str, four: bool, compound: bool = False, fixed: dict | None = None):
+    x = strategy_returns(r, train_end, four, compound)
+    return {"opt": sharpe(x["opt"]), "base": sharpe(x["base"]), "w_opt": x["w_opt"], "w_base": x["w_base"],
+            "n_train": x["n_train"], "n_test": x["n_test"]}
 
 
 def main() -> None:
