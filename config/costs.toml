@@ -27,6 +27,11 @@ sell_share_fee_cap = 8.30
 share_fee = 0.000203     # 0.000003 + 0.00020
 slippage_bps = 1.0       # ASSUMPTION: paid on every fill, in basis points of price
                          # (half the bid/ask spread plus slippage). The main cost under Lite.
+                         # MEASURED (IBKR, SPY, 2026-11-18 about 15:36 New York, REALTIME): bid/ask 730.37/730.40 (half-spread 0.21 bp)
+                         # and, 12 seconds later, 730.46/730.48 (0.14 bp). Two quotes on one day are a snapshot, not a history, and
+                         # say nothing about quote depth or market impact; the 02:06 ET overnight quote (734.14/734.23, 1.2 bp
+                         # wide) was not a regular-hours spread. 1 bp is kept deliberately: about 0.2 bp of it is spread, the rest
+                         # is an allowance for slippage that has not been measured.
 
 # Interest (IBKR Lite): idle cash earns the benchmark rate minus 1%; margin loans cost
 # the benchmark plus 2.5%. Set in RunConfig (cash_spread, margin_spread). The benchmark
