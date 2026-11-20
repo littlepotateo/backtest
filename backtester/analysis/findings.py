@@ -179,8 +179,10 @@ def option_pricing_sensitivity(runner: Runner, params: dict, base) -> dict:
                     "and a level fitted to the Cboe PutWrite index differ by about 16%."}
 
 
-def _flag(severity: str, test: str, message: str) -> dict:
-    return {"severity": severity, "test": test, "message": message}
+def _flag(severity: str, test: str, message: str, kind: str = "finding") -> dict:
+    """`kind` is "finding" (about the strategy's evidence or risk), "data_note" (about the price data, not the strategy)
+    or "note" (a test that was skipped). Only findings count toward the evidence rating."""
+    return {"severity": severity, "test": test, "message": message, "kind": kind}
 
 
 def flags(v: dict) -> list[dict]:
@@ -207,7 +209,8 @@ def flags(v: dict) -> list[dict]:
             f.append(_flag("medium", "look-ahead", "Orders fill on the same bar that produced the signal."))
         for s, d in c["data"].items():
             for issue in d["issues"]:
-                f.append(_flag("info" if "standard deviations" in issue else "medium", "data", f"{s}: {issue}."))
+                f.append(_flag("info" if "standard deviations" in issue else "medium", "data",
+                               f"{s} data: {issue}.", kind="data_note"))
         t = c["trades"]
         share = t.get("top_5pct_share_of_gross_profit")
         if v.get("rebalanced"):
@@ -287,12 +290,13 @@ def flags(v: dict) -> list[dict]:
         p = o.get("permutation")
         if p and "p_value" in p and p["p_value"] > 0.10:
             f.append(_flag("medium", "significance",
-                           f"Timing is not distinguishable from chance (permutation p = {p['p_value']:.2f}); "
-                           "returns may come from market exposure alone."))
+                           f"The timing is no better than chance: a shuffle test gives a p-value of {p['p_value']:.2f} "
+                           "(above 0.10 means no clear edge), so returns may come from market exposure alone."))
         re = o.get("random_entry")
         if re and "p_value" in re and re["p_value"] > 0.10:
             f.append(_flag("info", "significance",
-                           f"Random entries with the same holding periods do about as well (p = {re['p_value']:.2f})."))
+                           f"Random entries held for the same periods do about as well (p-value {re['p_value']:.2f}): "
+                           "the entry rule adds little."))
 
     rg = v.get("regimes")
     if rg:
@@ -328,7 +332,10 @@ def flags(v: dict) -> list[dict]:
                        f"The account covers only about {op['lots_affordable_at_start']:.0f} lots of 100 shares at the start, "
                        "so position sizes move in large steps and results swing with small timing changes. "
                        "Test with more capital to see the strategy itself."))
+    skipped: dict[str, list[str]] = {}                     # one line per reason, not one per skipped test
     for name, why in v.get("skipped", {}).items():
-        f.append(_flag("info", name, f"Not run: {why}."))
+        skipped.setdefault(why, []).append(name)
+    for why, names in skipped.items():
+        f.append(_flag("info", ", ".join(names), f"Skipped ({why}).", kind="note"))
     order = {"high": 0, "medium": 1, "info": 2}
     return sorted(f, key=lambda x: order[x["severity"]])

@@ -41,7 +41,23 @@
 <details class="technical">
   <summary>Technical details (for a developer or a bug report)</summary>
   <p class="note">The full log of the run, including any traceback.</p>
+  <p><button type="button" class="btn" id="copy-details">Copy technical details</button>
+     <span id="copy-status" class="note" role="status"></span></p>
+  <textarea id="details-text" hidden>Status: {{ job.status }}
+{% if job.code %}Code: {{ job.code }}
+{% endif %}Strategy: {{ job.strategy }}
+{% if job.message %}Message: {{ job.message }}
+{% endif %}
+{{ job.output }}</textarea>
   <pre class="log">{{ job.output }}</pre>
 </details>
+<script>
+document.getElementById('copy-details').addEventListener('click', async () => {
+  const text = document.getElementById('details-text').value;
+  const status = document.getElementById('copy-status');
+  try { await navigator.clipboard.writeText(text); status.textContent = 'Copied.'; }
+  catch (e) { status.textContent = 'Could not copy here: select the log below and copy it.'; }
+});
+</script>
 {% endif %}
 {% endblock %}

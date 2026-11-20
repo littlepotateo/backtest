@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import re
@@ -21,6 +22,14 @@ JOB_ID = re.compile(r"^[a-f0-9]{12}$")
 
 class BadRequest(ValueError):
     pass
+
+
+def _real_date(v: str) -> bool:
+    try:
+        datetime.date.fromisoformat(v)
+        return True
+    except ValueError:
+        return False
 
 
 def _num(value: str, name: str, low: float, high: float) -> str:
@@ -49,8 +58,8 @@ class Jobs:
         for key, flag in (("start", "--start"), ("end", "--end")):
             v = (form.get(key) or "").strip()
             if v:
-                if not DATE.match(v):
-                    raise BadRequest(f"{key} must be a date like 2020-01-31")
+                if not DATE.match(v) or not _real_date(v):
+                    raise BadRequest(f"{key} must be a real date like 2020-01-31")
                 cmd += [flag, v]
         cmd += ["--cash", _num(form.get("cash") or "100000", "cash", 1_000, 1e10)]
         cmd += ["--cost-multiplier", _num(form.get("cost_multiplier") or "1", "cost multiplier", 0, 20)]
@@ -106,6 +115,27 @@ class Jobs:
                 self._save(job_id, job)
         job["output"] = text[-6000:]
         return job
+
+
+    def recent(self, limit: int = 15) -> list[dict]:
+        """The latest jobs with their outcomes, newest first. A job still marked running is checked once more."""
+        if not self.dir.exists():
+            return []
+        found = []
+        for f in self.dir.glob("*.json"):
+            if JOB_ID.match(f.stem):
+                try:
+                    found.append((json.loads(f.read_text(encoding="utf-8")).get("started", 0), f.stem))
+                except (OSError, json.JSONDecodeError):
+                    continue
+        out = []
+        for _, jid in sorted(found, reverse=True)[:limit]:
+            job = self.status(jid)
+            out.append({"id": jid, "strategy": job.get("strategy") or "", "status": job.get("status"),
+                        "title": job.get("title") or ("Running" if job.get("status") == "running" else ""),
+                        "code": job.get("code"), "run_id": job.get("run_id"),
+                        "started": time.strftime("%Y-%m-%d %H:%M", time.localtime(job.get("started", 0)))})
+        return out
 
 
 def _classify(job: dict, code: int, text: str, runs_dir: Path) -> dict:

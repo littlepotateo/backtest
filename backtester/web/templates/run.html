@@ -14,8 +14,14 @@
   {% if r.trust %}<span class="chip" title="How well the tests support the result; not a forecast">Evidence: {{ r.trust[0] }}</span>
   <span class="chip">{{ r.evidence_flags|selectattr('severity','equalto','high')|list|length }} serious · {{ r.evidence_flags|selectattr('severity','equalto','medium')|list|length }} moderate concerns</span>
   {% if r.risk_flags %}<span class="chip" title="{{ r.risk_flags|map(attribute='message')|join(' ') }}">Risk warning: see below</span>{% endif %}
-  {% else %}<span class="chip">not validated: run <code>bt validate</code></span>{% endif %}
+  {% else %}<a class="btn" href="/rerun/{{ r.id }}" title="Runs the robustness tests on this strategy">Validate this result</a>{% endif %}
 </div>
+{% if r.verdict %}
+<div class="card verdict verdict-{{ r.verdict.level }}" role="status">
+  <strong>Strategy result:</strong> {{ r.verdict.text }}
+  <p class="note">This describes the backtest. Read the evidence rating and the notes below before relying on it.</p>
+</div>
+{% endif %}
 
 <nav class="jump" aria-label="On this page"><a href="#explanation">Summary</a><a href="#equity-h">Growth</a><a href="#monthly-h">Monthly</a>
   {% if v %}<a href="#tests-h">Tests</a>{% endif %}{% if option_dates %}<a href="#surfaces-h">Option surfaces</a>{% endif %}<a href="#trades-h">Trades</a></nav>
@@ -28,6 +34,12 @@
     <div class="note">{% if m.benchmark_max_drawdown is not none %}{{ r.meta.benchmark }}: {{ m.benchmark_max_drawdown|pct }}{% else %}longest {{ m.longest_drawdown_days }} days{% endif %}</div></div>
   <div class="tile"><div class="label">{{ term("trades", "Closed trades") }}</div><div class="value">{{ m.trades }}</div><div class="note">win rate {{ m.win_rate|pct(0) }}</div></div>
 </div>
+
+{% if r.data_notes %}
+<div class="card data-notes"><strong>Notes about the data</strong> (these are not about the strategy)
+  <ul>{% for f in r.data_notes %}<li>{{ f.message }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
 
 <h2 id="explanation">What the backtest says</h2>
 {% if r.narrative_html %}<div class="card prose">{{ r.narrative_html|safe }}</div>{% endif %}

@@ -2,5 +2,9 @@
 {% block title %}Problem{% endblock %}
 {% block main %}
 <h1>{{ title }}</h1>
-<div class="card"><p>{{ message }}</p><p><a class="btn" href="javascript:history.back()">Go back</a> <a class="btn" href="/">Home</a></p></div>
+<div class="card problem problem-input_error" role="alert"><p>{{ message }}</p>
+  {% if action %}<p><strong>What to do:</strong> {{ action }}</p>{% endif %}
+  {% if code %}<p class="note">Code <code>{{ code }}</code> (see docs/error-codes.md).</p>{% endif %}
+</div>
+<p><a class="btn" href="javascript:history.back()">Go back</a> <a class="btn" href="/">Home</a></p>
 {% endblock %}

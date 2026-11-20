@@ -15,6 +15,7 @@ import pandas as pd
 from backtester.analysis.metrics import daily_equity
 from backtester.explain import explain, trust_level
 from backtester.explain.report import RISK_TESTS
+from backtester.outcome import verdict
 
 SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 NY = "America/New_York"
@@ -56,7 +57,7 @@ def summarise(d: Path) -> dict | None:
         "interval": meta.get("interval"), "params": meta.get("params", {}),
         "start": metrics["start"][:10], "end": metrics["end"][:10], "metrics": metrics,
         "backend": meta.get("backend"), "trust": trust,
-        "high": sum(f["severity"] == "high" and f["test"] not in RISK_TESTS for f in flags) if flags else None,
+        "high": sum(f["severity"] == "high" and f["test"] not in RISK_TESTS and f.get("kind", "finding") == "finding" for f in flags) if flags else None,
         "medium": sum(f["severity"] == "medium" and f["test"] not in RISK_TESTS for f in flags) if flags else None,
         "risk_warning": any(f["test"] in RISK_TESTS and f["severity"] in ("high", "medium") for f in flags) if flags else None,
         "validated": validation is not None, "has_options": bool(meta.get("options")),
@@ -136,8 +137,10 @@ def load_run(runs_dir: Path, run_id: str, cache_root: Path) -> dict:
     return {
         "id": run_id, "dir": d, "meta": meta, "metrics": metrics, "validation": validation, "flags": flags,
         "trust": trust_level(flags) if validation else None, "initial": initial,
-        "evidence_flags": [f for f in flags if f["test"] not in RISK_TESTS],
+        "evidence_flags": [f for f in flags if f["test"] not in RISK_TESTS and f.get("kind", "finding") == "finding"],
         "risk_flags": [f for f in flags if f["test"] in RISK_TESTS and f["severity"] in ("high", "medium")],
+        "data_notes": [f for f in flags if f.get("kind", "finding") != "finding"],
+        "verdict": verdict(metrics),
         "explanation_html": render_markdown(explanation) if explanation else None,
         "narrative_html": render_markdown(narrative) if narrative else None,
         "equity": eq, "bench": bench, "drawdown": dd, "bench_drawdown": bdd,
