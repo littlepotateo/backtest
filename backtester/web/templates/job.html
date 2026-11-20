@@ -1,11 +1,47 @@
 {% extends "base.html" %}
-{% block title %}Job{% endblock %}
+{% block title %}Run status{% endblock %}
 {% block head %}{% if job.status == 'running' %}<meta http-equiv="refresh" content="3">{% endif %}{% endblock %}
 {% block main %}
-<h1>Re-run: {{ job.status }}</h1>
+{% if job.status == 'running' %}
+<h1>Running the backtest</h1>
 <p class="sub">{{ job.strategy }}</p>
-{% if job.status == 'running' %}<p>Running… this page refreshes every few seconds.</p>
-{% elif job.status == 'done' and job.run_id %}<p><a class="btn primary" href="/run/{{ job.run_id }}">Open the new run</a></p>
-{% else %}<p>The run failed. The output is below.</p>{% endif %}
-<pre class="log">{{ job.output }}</pre>
+<p>This page refreshes every few seconds until the run finishes.</p>
+
+{% elif job.status == 'done' %}
+<h1>Run completed</h1>
+<p class="sub">{{ job.strategy }}</p>
+<p>The backtest finished and was saved. This describes the run, not whether the strategy is good.</p>
+{% if job.verdict %}
+<div class="card verdict verdict-{{ job.verdict.level }}" role="status">
+  <strong>Strategy result:</strong> {{ job.verdict.text }}
+  <p class="note">Read the tests and flags on the result page before relying on it.</p>
+</div>
+{% endif %}
+<p><a class="btn primary" href="/run/{{ job.run_id }}">Open the result</a>
+   <a class="btn" href="/rerun/{{ job.run_id }}">Re-run with changes</a></p>
+
+{% else %}
+<h1>{{ job.title }}</h1>
+<p class="sub">{{ job.strategy }}</p>
+<div class="card problem problem-{{ job.kind }}" role="alert">
+  <p><strong>{% if job.kind == 'strategy_error' %}Strategy failed: the strategy's own code stopped.
+     {% elif job.kind == 'input_error' %}Not run: a setting needs changing.
+     {% elif job.kind == 'analysis_error' %}Not a strategy result: the analysis could not be completed.
+     {% elif job.kind == 'stopped' %}Not finished: the run was stopped.
+     {% else %}The run did not finish.{% endif %}</strong></p>
+  <p>{{ job.message }}</p>
+  {% if job.action %}<p><strong>What to do:</strong> {{ job.action }}</p>{% endif %}
+  {% if job.code %}<p class="note">Code <code>{{ job.code }}</code> (see docs/error-codes.md).</p>{% endif %}
+  {% if job.kind == 'strategy_error' %}<p class="note">No result was saved, so there is no performance to judge yet.</p>{% endif %}
+</div>
+<p><a class="btn" href="/new">Back to the settings</a></p>
+{% endif %}
+
+{% if job.status != 'running' %}
+<details class="technical">
+  <summary>Technical details (for a developer or a bug report)</summary>
+  <p class="note">The full log of the run, including any traceback.</p>
+  <pre class="log">{{ job.output }}</pre>
+</details>
+{% endif %}
 {% endblock %}

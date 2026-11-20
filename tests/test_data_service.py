@@ -169,7 +169,9 @@ def test_cli_fetch_prints_progress_and_fails_loudly(tmp_path, monkeypatch, capsy
     monkeypatch.setattr(service, "fetch_yahoo", boom)
     with pytest.raises(SystemExit) as e:
         cli.main(["--cache", str(tmp_path / "c"), "fetch-yahoo", "NOPE"])
-    assert "no data for that symbol" in str(e.value) and e.value.code != 0
+    shown = capsys.readouterr()
+    assert "no data for that symbol" in shown.err + shown.out and e.value.code != 0
+    assert "RESULT:" in shown.out and "BT-DATA-000" in shown.out         # a plain summary with the code, not a bare exit
     with pytest.raises(SystemExit) as e:
         cli.main(["--cache", str(tmp_path / "c"), "fetch-rates"])
     assert e.value.code != 0

@@ -12,6 +12,7 @@ import uuid
 from pathlib import Path
 
 from backtester.analysis.findings import ALL_TESTS, CHEAP_TESTS
+from backtester.outcome import KINDS, MARKER as OUTCOME_MARKER, verdict
 
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 PARAM = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=[^\r\n]{1,200}$")
@@ -100,8 +101,45 @@ class Jobs:
             code = proc.poll() if proc else (None if (time.time() - job["started"]) < 1800 else -1)
             if code is not None:
                 m = re.search(r"Saved to runs/([^\s]+)", text) or re.search(r"Saved to \S*/([^/\s]+)", text)
-                job.update(status="done" if code == 0 and m else "failed", exit_code=code,
-                           run_id=m.group(1) if m else None)
+                job.update(exit_code=code, run_id=m.group(1) if m else None)
+                job.update(_classify(job, code, text, self.runs_dir))
                 self._save(job_id, job)
         job["output"] = text[-6000:]
         return job
+
+
+def _classify(job: dict, code: int, text: str, runs_dir: Path) -> dict:
+    """The outcome shown on the job page: a status, a plain title and message, and a verdict on the strategy when it ran."""
+    marker = None
+    for line in text.splitlines():
+        if line.startswith(OUTCOME_MARKER):
+            try:
+                marker = json.loads(line[len(OUTCOME_MARKER):])
+            except json.JSONDecodeError:
+                marker = None
+    if code == 0 and job.get("run_id"):
+        metrics = None
+        try:
+            metrics = json.loads((runs_dir / job["run_id"] / "metrics.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            pass
+        return {"status": "done", "kind": "ok", "title": "Run completed", "code": None,
+                "message": "The backtest finished and was saved.", "action": "",
+                "verdict": verdict(metrics)}
+    if code == -1:
+        return {"status": "stopped", "kind": "stopped", "title": KINDS["stopped"][0], "code": KINDS["stopped"][1],
+                "message": "The run took longer than 30 minutes and was stopped.",
+                "action": "Try a shorter date range or fewer validation paths, then run again.", "verdict": None}
+    if marker and marker.get("kind") in KINDS:
+        return {"status": marker["kind"], "kind": marker["kind"], "title": marker["title"], "code": marker["code"],
+                "message": marker["message"], "action": marker["action"], "line": marker.get("line"),
+                "verdict": None}
+    if code == 0:
+        return {"status": "analysis_error", "kind": "analysis_error", "title": KINDS["analysis_error"][0],
+                "code": KINDS["analysis_error"][1], "verdict": None,
+                "message": "The run finished without saving a result.",
+                "action": "Copy the technical details below and report the code."}
+    return {"status": "analysis_error", "kind": "analysis_error", "title": KINDS["analysis_error"][0],
+            "code": KINDS["analysis_error"][1], "verdict": None,
+            "message": f"The run stopped unexpectedly (exit code {code}) with no reason recorded.",
+            "action": "Copy the technical details below and report the code."}

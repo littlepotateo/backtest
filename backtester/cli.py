@@ -6,6 +6,7 @@ import argparse
 import importlib.util
 import json
 import sys
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -130,8 +131,8 @@ def cmd_fetch_yahoo(args):
     print(f"Saving to {cache.root}")
     try:
         service.fetch_symbol(cache, args.symbol, args.interval, args.start, log=print)
-    except DataError as e:
-        raise SystemExit(f"error: {e}")
+    except DataError:
+        raise                                            # main() prints the plain-language outcome and the code
 
 
 def cmd_fetch_rates(args):
@@ -141,8 +142,8 @@ def cmd_fetch_rates(args):
     print(f"Saving to {cache.root}")
     try:
         service.fetch_rates(cache, args.start, log=print)
-    except DataError as e:
-        raise SystemExit(f"error: {e}")
+    except DataError:
+        raise                                            # main() prints the plain-language outcome and the code
 
 
 def cmd_doctor(args):
@@ -604,7 +605,21 @@ def main(argv=None):
     s.set_defaults(func=cmd_compare_ibkr)
 
     args = p.parse_args(argv)
-    args.func(args)
+    from backtester import outcome
+    try:
+        args.func(args)
+    except SystemExit as e:
+        if isinstance(e.code, str):                       # raise SystemExit("error: ...") is a settings problem
+            outcome.emit(outcome.failure("input_error", e.code.removeprefix("error: "),
+                                         "Change the setting named above and run again."))
+        raise
+    except KeyboardInterrupt:
+        raise
+    except Exception as e:
+        from backtester.errors import CodedError
+        if not isinstance(e, CodedError):                # expected errors have a plain message; others keep the traceback
+            traceback.print_exc()                        # kept in the job log under "technical details"
+        outcome.emit(outcome.from_exception(e, getattr(args, "strategy", None)))
 
 
 if __name__ == "__main__":

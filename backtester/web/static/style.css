@@ -123,3 +123,15 @@ legend { color: var(--text-secondary); font-size: .85rem; padding: 0 6px; }
   border-radius: 8px; padding: 8px 10px; user-select: all; }
 [hidden] { display: none !important; }
 .banner { margin: 0; padding: 10px 24px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--bad) 12%, var(--surface-1)); }
+
+/* Run outcome (job page): a problem, a verdict on the strategy, and collapsed technical details */
+.problem { border-left: 4px solid var(--danger, #c0392b); }
+.problem-input_error { border-left-color: var(--warn, #b7791f); }
+.problem-stopped { border-left-color: var(--warn, #b7791f); }
+.problem-analysis_error { border-left-color: var(--text-secondary, #666); }
+.verdict { border-left: 4px solid var(--border); }
+.verdict-loss { border-left-color: var(--danger, #c0392b); }
+.verdict-lagged { border-left-color: var(--warn, #b7791f); }
+.verdict-beat, .verdict-profit { border-left-color: var(--accent, #2a78d6); }
+details.technical { margin-top: 24px; }
+details.technical summary { cursor: pointer; color: var(--text-secondary); }
