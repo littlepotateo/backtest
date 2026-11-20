@@ -168,7 +168,7 @@ def test_rerun_starts_a_job_and_reports_status(client, project, monkeypatch):
     assert "validate" in started["cmd"]
     assert started["env"]["PYTHONUTF8"] == "1"          # the child reads and writes files as UTF-8 on Windows too
     page = client.get(r.headers["location"])
-    assert page.status_code == 200 and "done" in page.text and "20260102-000000-Trend" in page.text
+    assert page.status_code == 200 and "Run completed" in page.text and "20260102-000000-Trend" in page.text
     assert client.post("/rerun", data={"strategy": "../x.py"}).status_code == 400
     assert client.get("/jobs/zzzz").status_code == 404
     assert client.get("/rerun/20260101-000001-Trend").status_code == 200

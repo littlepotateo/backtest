@@ -23,5 +23,6 @@ GLOSSARY = {
     "modelled": "Option prices here come from a formula (Black-Scholes) with an assumed volatility, not from real quotes.",
     "gamma": "How fast an option's delta changes when the price moves. Large near the strike close to expiry.",
     "rebalance": "Periodically trading back to target weights.",
+    "p_value": "The chance of a result at least this good arising by luck if the strategy had no real edge. Below 0.10 is a clue; above it, the evidence for an edge is weak.",
     "adjusted": "Prices adjusted for dividends and splits so that returns include them.",
 }

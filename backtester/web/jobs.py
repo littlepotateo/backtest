@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import re
@@ -12,6 +13,7 @@ import uuid
 from pathlib import Path
 
 from backtester.analysis.findings import ALL_TESTS, CHEAP_TESTS
+from backtester.outcome import KINDS, MARKER as OUTCOME_MARKER, verdict
 
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 PARAM = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=[^\r\n]{1,200}$")
@@ -20,6 +22,14 @@ JOB_ID = re.compile(r"^[a-f0-9]{12}$")
 
 class BadRequest(ValueError):
     pass
+
+
+def _real_date(v: str) -> bool:
+    try:
+        datetime.date.fromisoformat(v)
+        return True
+    except ValueError:
+        return False
 
 
 def _num(value: str, name: str, low: float, high: float) -> str:
@@ -48,8 +58,8 @@ class Jobs:
         for key, flag in (("start", "--start"), ("end", "--end")):
             v = (form.get(key) or "").strip()
             if v:
-                if not DATE.match(v):
-                    raise BadRequest(f"{key} must be a date like 2020-01-31")
+                if not DATE.match(v) or not _real_date(v):
+                    raise BadRequest(f"{key} must be a real date like 2020-01-31")
                 cmd += [flag, v]
         cmd += ["--cash", _num(form.get("cash") or "100000", "cash", 1_000, 1e10)]
         cmd += ["--cost-multiplier", _num(form.get("cost_multiplier") or "1", "cost multiplier", 0, 20)]
@@ -100,8 +110,66 @@ class Jobs:
             code = proc.poll() if proc else (None if (time.time() - job["started"]) < 1800 else -1)
             if code is not None:
                 m = re.search(r"Saved to runs/([^\s]+)", text) or re.search(r"Saved to \S*/([^/\s]+)", text)
-                job.update(status="done" if code == 0 and m else "failed", exit_code=code,
-                           run_id=m.group(1) if m else None)
+                job.update(exit_code=code, run_id=m.group(1) if m else None)
+                job.update(_classify(job, code, text, self.runs_dir))
                 self._save(job_id, job)
         job["output"] = text[-6000:]
         return job
+
+
+    def recent(self, limit: int = 15) -> list[dict]:
+        """The latest jobs with their outcomes, newest first. A job still marked running is checked once more."""
+        if not self.dir.exists():
+            return []
+        found = []
+        for f in self.dir.glob("*.json"):
+            if JOB_ID.match(f.stem):
+                try:
+                    found.append((json.loads(f.read_text(encoding="utf-8")).get("started", 0), f.stem))
+                except (OSError, json.JSONDecodeError):
+                    continue
+        out = []
+        for _, jid in sorted(found, reverse=True)[:limit]:
+            job = self.status(jid)
+            out.append({"id": jid, "strategy": job.get("strategy") or "", "status": job.get("status"),
+                        "title": job.get("title") or ("Running" if job.get("status") == "running" else ""),
+                        "code": job.get("code"), "run_id": job.get("run_id"),
+                        "started": time.strftime("%Y-%m-%d %H:%M", time.localtime(job.get("started", 0)))})
+        return out
+
+
+def _classify(job: dict, code: int, text: str, runs_dir: Path) -> dict:
+    """The outcome shown on the job page: a status, a plain title and message, and a verdict on the strategy when it ran."""
+    marker = None
+    for line in text.splitlines():
+        if line.startswith(OUTCOME_MARKER):
+            try:
+                marker = json.loads(line[len(OUTCOME_MARKER):])
+            except json.JSONDecodeError:
+                marker = None
+    if code == 0 and job.get("run_id"):
+        metrics = None
+        try:
+            metrics = json.loads((runs_dir / job["run_id"] / "metrics.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            pass
+        return {"status": "done", "kind": "ok", "title": "Run completed", "code": None,
+                "message": "The backtest finished and was saved.", "action": "",
+                "verdict": verdict(metrics)}
+    if code == -1:
+        return {"status": "stopped", "kind": "stopped", "title": KINDS["stopped"][0], "code": KINDS["stopped"][1],
+                "message": "The run took longer than 30 minutes and was stopped.",
+                "action": "Try a shorter date range or fewer validation paths, then run again.", "verdict": None}
+    if marker and marker.get("kind") in KINDS:
+        return {"status": marker["kind"], "kind": marker["kind"], "title": marker["title"], "code": marker["code"],
+                "message": marker["message"], "action": marker["action"], "line": marker.get("line"),
+                "verdict": None}
+    if code == 0:
+        return {"status": "analysis_error", "kind": "analysis_error", "title": KINDS["analysis_error"][0],
+                "code": KINDS["analysis_error"][1], "verdict": None,
+                "message": "The run finished without saving a result.",
+                "action": "Copy the technical details below and report the code."}
+    return {"status": "analysis_error", "kind": "analysis_error", "title": KINDS["analysis_error"][0],
+            "code": KINDS["analysis_error"][1], "verdict": None,
+            "message": f"The run stopped unexpectedly (exit code {code}) with no reason recorded.",
+            "action": "Copy the technical details below and report the code."}

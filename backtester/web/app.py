@@ -112,7 +112,7 @@ def create_app(root: str | Path | None = None) -> FastAPI:
 
     @app.get("/runs", response_class=HTMLResponse)
     def runs(request: Request):
-        return page(request, "runs.html", runs=D.list_runs(runs_dir))
+        return page(request, "runs.html", runs=D.list_runs(runs_dir), jobs=jobs.recent())
 
     @app.get("/data", response_class=HTMLResponse)
     def data_page(request: Request):
@@ -234,7 +234,9 @@ def create_app(root: str | Path | None = None) -> FastAPI:
         try:
             return RedirectResponse(f"/jobs/{jobs.start(form)}", status_code=303)
         except BadRequest as e:
-            return templates.TemplateResponse(request, "error.html", {"nav": "/new", "title": "Could not start the run", "message": str(e)}, status_code=400)
+            return templates.TemplateResponse(request, "error.html", {"nav": "/new", "title": "Could not start the run", "message": str(e),
+                                                                     "action": "Correct the setting named above and submit again.",
+                                                                     "code": "BT-RUN-002"}, status_code=400)
 
     @app.get("/jobs/{job_id}", response_class=HTMLResponse)
     def job_page(request: Request, job_id: str):

@@ -27,4 +27,23 @@
 </table>
 </div>
 {% endif %}
+{% if jobs %}
+<h2 id="jobs-h">Recent runs and their outcome</h2>
+<p class="sub">Runs started from the dashboard, including ones that did not finish. Click one for the reason.</p>
+<div class="card scroll">
+<table id="jobs-table">
+  <thead><tr><th>Started</th><th>Strategy</th><th>Outcome</th><th>Code</th></tr></thead>
+  <tbody>
+  {% for j in jobs %}
+  <tr>
+    <td>{{ j.started }}</td>
+    <td>{{ j.strategy }}</td>
+    <td><a href="/jobs/{{ j.id }}">{% if j.status == 'done' %}Completed{% elif j.status == 'running' %}Running{% else %}{{ j.title }}{% endif %}</a></td>
+    <td>{% if j.code %}<code>{{ j.code }}</code>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
 {% endblock %}

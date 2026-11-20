@@ -88,3 +88,16 @@ Codes are stable: a code never changes meaning. The test suite checks that every
 | BT-LIB-000 | The paper library files cannot be read (no more specific code). | Read the message. |
 | BT-LIB-001 | `research/library/index.json` is damaged and cannot be read. | Open it in a text editor to fix it, or rename it to start an empty library; saved PDFs are kept. |
 | BT-FILE-001 | A file could not be read or written because of a text-encoding problem (typical on Windows with letters such as the "fi" ligature in a paper). | Restart with `start.bat` / `start.sh`, which switch the program to UTF-8. |
+
+## Backtest runs (`BT-RUN`)
+
+These appear on the run status page. The page says which of the four it is in plain words; the code lets you look it up.
+
+| Code | Meaning | What to do |
+|---|---|---|
+| BT-RUN-001 | Your strategy's own code raised an error, so no result was saved. The page names the file and line. | Fix the strategy file at that line and run again. |
+| BT-RUN-002 | The settings cannot be used: bad dates, no data for the symbol, an unknown parameter, and similar. Nothing was run. | Change the setting the message names, or download the data, and run again. |
+| BT-RUN-003 | The program hit an internal error while completing the analysis. Your strategy's code did not raise it. | Copy the technical details and report the code. |
+| BT-RUN-004 | The run took longer than 30 minutes and was stopped. | Use a shorter date range or fewer validation paths. |
+
+A run that finishes and is saved is not an error, even when the strategy lost money. The status page then gives a separate "Strategy result" line (lost money, lagged buy and hold, beat it, or made no trades).

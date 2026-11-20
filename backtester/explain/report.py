@@ -31,7 +31,7 @@ RISK_TESTS = {"monte-carlo"}      # about how much could be lost, not whether th
 def trust_level(flags: list[dict]) -> tuple[str, str]:
     """How well the evidence supports the strategy. Risk-of-loss flags are reported
     separately: a strategy can have a real edge and still be too risky for someone."""
-    evidence = [f for f in flags if f["test"] not in RISK_TESTS]
+    evidence = [f for f in flags if f["test"] not in RISK_TESTS and f.get("kind", "finding") == "finding"]
     high, medium = len(_by_severity(evidence, "high")), len(_by_severity(evidence, "medium"))
     if high:
         return ("Unproven", f"{high} serious concern{'s' if high != 1 else ''} below mean this result should not be relied on yet.")
