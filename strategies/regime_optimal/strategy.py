@@ -74,6 +74,7 @@ def dsm_weights(r: pd.Series, s: pd.Series) -> dict[int, float]:
 
 class RegimeOptimal(Strategy):
     universe = ["FFMKT"]
+    returns = "excess"        # the signal is built on excess returns (FFMKT is an excess-return series)
     interval = "1d"
     params = {"mode": "opt", "states": 2, "train_end": "1968-12-31"}
     param_grid = {"states": [2, 4]}
@@ -89,6 +90,12 @@ class RegimeOptimal(Strategy):
         self.fit_key = None
         self.weights = None
         self.fitted_on = None
+
+    @classmethod
+    def history_needed(cls, params: dict) -> str | None:
+        """The training window needs 13 months of returns before train_end (the trailing 12-month signal plus one month)."""
+        train_end = pd.Timestamp(params.get("train_end", cls.params["train_end"]))
+        return (train_end - pd.DateOffset(months=13)).strftime("%Y-%m-%d")
 
     def monthly_returns(self, ctx, include_current: bool) -> pd.Series:
         """Excess returns of completed months, oldest first. With include_current the latest bar is the month's last bar."""

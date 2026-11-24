@@ -67,6 +67,12 @@ class Jobs:
         cmd += ["--paths", _num(form.get("paths") or "2000", "paths", 100, 20000)]
         if (form.get("synthetic") or "0") not in ("", "0"):
             cmd += ["--synthetic", _num(form["synthetic"], "synthetic", 1, 500)]
+        symbols = [s.strip().upper() for s in re.split(r"[,\s]+", form.get("symbols") or "") if s.strip()]
+        if symbols:
+            if len(symbols) > 10 or any(not re.match(r"^[A-Za-z0-9^.-]{1,12}$", s) for s in symbols):
+                raise BadRequest("symbols must be up to 10 ticker symbols, separated by commas")
+            for s in symbols:
+                cmd += ["--symbol", s]
         bench = (form.get("benchmark") or "").strip()
         if bench:
             if not re.match(r"^[A-Za-z0-9^.-]{1,12}$", bench):
