@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import json
 from pathlib import Path
 
 from backtester.data.cache import Cache
@@ -59,16 +60,51 @@ def describe_file(path: Path, root: Path) -> list[dict]:
     return out
 
 
+def _sidecar(path: Path) -> dict:
+    """The user's description, edge and status for a strategy file (strategies/user, strategies/pending), or {}."""
+    side = path.with_suffix(".meta.json")
+    try:
+        return json.loads(side.read_text(encoding="utf-8")) if side.exists() else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
 def list_strategies(root: Path) -> list[dict]:
+    """Runnable strategies: the shipped ones and the user's approved ones. Drafts (pending) and removed files are not runnable."""
     folder = root / "strategies"
     if not folder.exists():
         return []
     found = []
     for f in sorted(folder.rglob("*.py")):
-        if f.name.startswith("_") or "__pycache__" in f.parts:
+        if f.name.startswith("_") or "__pycache__" in f.parts or {"pending", "removed"} & set(f.relative_to(folder).parts):
             continue
-        found.extend(describe_file(f, root))
+        for entry in describe_file(f, root):
+            meta = _sidecar(f)
+            if meta.get("description"):
+                entry["description"] = meta["description"]
+            entry["edge"] = meta.get("edge", "")
+            entry["source"] = meta.get("source")
+            entry["status"] = meta.get("status", "approved" if "user" in f.relative_to(folder).parts else "shipped")
+            found.append(entry)
     return found
+
+
+def list_pending(root: Path) -> list[dict]:
+    """Drafts waiting for the user's review (strategies/pending). Never run from here."""
+    folder = root / "strategies" / "pending"
+    if not folder.exists():
+        return []
+    out = []
+    for f in sorted(folder.glob("*.py")):
+        meta = _sidecar(f)
+        try:
+            code = f.read_text(encoding="utf-8")
+        except OSError:
+            code = ""
+        out.append({"path": f.relative_to(root).as_posix(), "name": f.stem, "description": meta.get("description", ""),
+                    "edge": meta.get("edge", ""), "source": meta.get("source"), "created": meta.get("created", ""),
+                    "code": code, "universe": [s for e in describe_file(f, root) for s in e["universe"]]})
+    return out
 
 
 def data_needs(strategy: dict, cache: Cache) -> list[dict]:

@@ -123,6 +123,10 @@ def create_app(root: str | Path | None = None) -> FastAPI:
         return page(request, "new.html", strategies=S.list_strategies(root), selected=strategy,
                     all_tests=ALL_TESTS, default_tests=CHEAP_TESTS)
 
+    @app.get("/strategies", response_class=HTMLResponse)
+    def strategies_page(request: Request):
+        return page(request, "strategies.html", strategies=S.list_strategies(root), pending=S.list_pending(root))
+
     @app.get("/run/{run_id}", response_class=HTMLResponse)
     def run(request: Request, run_id: str):
         r = get_run(run_id)

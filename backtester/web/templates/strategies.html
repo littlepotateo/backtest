@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Strategies{% endblock %}
+{% block main %}
+<h1>Strategies</h1>
+<p class="sub">The strategies you can backtest. Add your own from a Python file, or review drafts before they are used.</p>
+
+<h2>Add a strategy</h2>
+<div class="card">
+  <p class="note">A strategy file is Python code. It runs on this computer with your permissions. Only add files you trust.
+     The file is checked for structure and run once on its own data before it is added.</p>
+  <form id="upload-form" enctype="multipart/form-data">
+    <p><label>Strategy file (.py) <input type="file" name="file" accept=".py" required></label></p>
+    <p><label>Name (optional, letters, digits and underscores) <input type="text" name="name" pattern="[a-zA-Z][a-zA-Z0-9_]{2,40}"></label></p>
+    <p><label>What it does (optional) <input type="text" name="description" maxlength="600" size="60"></label></p>
+    <p><label>The edge it aims to capture (optional) <input type="text" name="edge" maxlength="600" size="60"></label></p>
+    <p><label><input type="checkbox" name="trusted" required> I trust this code and understand it runs on this computer.</label></p>
+    <p><button type="submit" class="btn primary">Add strategy</button> <span id="upload-status" class="note" role="status"></span></p>
+  </form>
+</div>
+
+<h2>Drafts waiting for your review</h2>
+{% if pending %}
+  {% for d in pending %}
+  <div class="card pending" data-path="{{ d.path }}">
+    <p><strong>{{ d.name }}</strong> <span class="chip">draft</span></p>
+    {% if d.description %}<p>{{ d.description }}</p>{% endif %}
+    {% if d.edge %}<p><strong>Edge:</strong> {{ d.edge }}</p>{% endif %}
+    {% if d.source %}<p class="note">From paper: {{ d.source }}</p>{% endif %}
+    <details><summary>Show the code</summary><pre class="log">{{ d.code }}</pre></details>
+    <p class="note">Nothing from a draft runs until you approve it.</p>
+    <p><button type="button" class="btn primary" data-action="approve">Approve</button>
+       <button type="button" class="btn danger" data-action="reject">Reject (delete)</button></p>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="card empty">No drafts. Strategies reconstructed from research papers will appear here for review.</div>
+{% endif %}
+
+<h2>Your strategies and the examples</h2>
+<div class="card scroll">
+<table>
+  <thead><tr><th>Name</th><th>Description</th><th>Symbols</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for s in strategies %}
+  <tr data-path="{{ s.path }}">
+    <td><strong>{{ s.name }}</strong><br><span class="legend-note">{{ s.path }}</span></td>
+    <td>{{ s.description or "No description yet." }}{% if s.edge %}<br><span class="legend-note">Edge: {{ s.edge }}</span>{% endif %}</td>
+    <td>{{ s.universe|join(', ') }}</td>
+    <td>{{ s.status }}</td>
+    <td>
+      <a class="btn" href="/new?strategy={{ s.path }}">Backtest</a>
+      {% if '/user/' in ('/' + s.path) %}<button type="button" class="btn danger" data-action="remove">Remove</button>{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<script>
+async function post(url, payload) {
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((j.error || 'The request failed.') + (j.code ? ' (' + j.code + ')' : ''));
+  return j;
+}
+document.getElementById('upload-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const status = document.getElementById('upload-status');
+  status.textContent = 'Checking the file…';
+  const r = await fetch('/api/strategies/upload', { method: 'POST', body: new FormData(ev.target) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { status.textContent = (j.error || 'The file was not added.') + (j.code ? ' (' + j.code + ')' : ''); return; }
+  status.textContent = 'Added' + (j.warning ? '. ' + j.warning : '.');
+  setTimeout(() => location.reload(), 900);
+});
+document.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('button[data-action]');
+  if (!btn) return;
+  const path = btn.closest('[data-path]').dataset.path;
+  const action = btn.dataset.action;
+  try {
+    if (action === 'remove') {
+      if (!confirm('Remove this strategy? It moves to strategies/removed and can be restored by moving it back.')) return;
+      await post('/api/strategies/remove', { path, confirm: true });
+    } else if (action === 'approve') {
+      await post('/api/strategies/approve', { path });
+    } else if (action === 'reject') {
+      if (!confirm('Delete this draft? This cannot be undone.')) return;
+      await post('/api/strategies/reject', { path, confirm: true });
+    }
+    location.reload();
+  } catch (e) {
+    alert(e.message);
+  }
+});
+</script>
+{% endblock %}
