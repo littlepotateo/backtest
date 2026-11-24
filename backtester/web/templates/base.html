@@ -15,6 +15,7 @@
   <a class="brand" href="/">Strategy backtester</a>
   <nav aria-label="Main">
     <a href="/" {% if nav == '/' %}aria-current="page"{% endif %}>Home</a>
+    <a href="/strategies" {% if nav == '/strategies' %}aria-current="page"{% endif %}>Strategies</a>
     <a href="/new" {% if nav == '/new' %}aria-current="page"{% endif %}>New backtest</a>
     <a href="/runs" {% if nav == '/runs' or nav.startswith('/run/') or nav.startswith('/rerun') or nav.startswith('/jobs') %}aria-current="page"{% endif %}>Results</a>
     <a href="/data" {% if nav == '/data' %}aria-current="page"{% endif %}>Data</a>

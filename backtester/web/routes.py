@@ -25,6 +25,7 @@ from fastapi.exception_handlers import http_exception_handler as default_http_ha
 from backtester.research.search import SearchError, search_papers
 from backtester.web import data as D
 from backtester.web import strategies as S
+from backtester.web import strategy_store as S_store
 
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 PAPER_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,120}$")
@@ -317,6 +318,46 @@ def register(app: FastAPI, ctx) -> None:
             Requests(ctx.lib_dir).delete(rid)
         except KeyError:
             return fail("No such request.", 404)
+        return {"ok": True}
+
+    @app.post("/api/strategies/upload")
+    async def strategy_upload(request: Request):
+        """A .py file from the form: checked, then stored in strategies/user (or strategies/pending for a draft)."""
+        form = await request.form()
+        f = form.get("file")
+        if f is None or not getattr(f, "filename", ""):
+            raise CodedError("Choose a .py strategy file to upload.", "BT-RUN-002")
+        if not f.filename.lower().endswith(".py"):
+            raise CodedError("Only Python (.py) files can be added as strategies.", "BT-RUN-002")
+        data = await f.read()
+        try:
+            source = data.decode("utf-8")
+        except UnicodeDecodeError:
+            raise CodedError("The file is not plain UTF-8 text.", "BT-RUN-002")
+        name = (form.get("name") or f.filename.rsplit(".", 1)[0]).strip()
+        result = S_store.add(ctx.root, ctx.cache_dir, name, source, status="approved",
+                             description=form.get("description") or "", edge=form.get("edge") or "",
+                             trusted=form.get("trusted") in ("on", "true", "1"))
+        return result
+
+    @app.post("/api/strategies/remove")
+    async def strategy_remove(request: Request):
+        data = await body(request)
+        if data.get("confirm") is not True:
+            raise CodedError("Confirm the removal first.", "BT-RUN-002")
+        return {"moved_to": S_store.remove(ctx.root, str(data.get("path", "")))}
+
+    @app.post("/api/strategies/approve")
+    async def strategy_approve(request: Request):
+        data = await body(request)
+        return {"path": S_store.approve(ctx.root, str(data.get("path", "")))}
+
+    @app.post("/api/strategies/reject")
+    async def strategy_reject(request: Request):
+        data = await body(request)
+        if data.get("confirm") is not True:
+            raise CodedError("Confirm the rejection first.", "BT-RUN-002")
+        S_store.reject(ctx.root, str(data.get("path", "")))
         return {"ok": True}
 
     @app.post("/api/papers/upload")
