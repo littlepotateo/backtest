@@ -153,6 +153,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const id = card.dataset.id;
     if (e.target.classList.contains('analyse-paper')) {
       startAnalysis(id, card.querySelector('h3').textContent);
+    } else if (e.target.classList.contains('describe-paper')) {
+      const path = card.querySelector('.describe-pick').value;
+      try { const { task_id } = await API.post('/api/strategies/describe', { path, paper: id }); followClaude(task_id, `Claude describes ${path.split('/').pop()} against ${card.querySelector('h3').textContent}`); }
+      catch (err) { toast(err.message, 'bad', 0); }
     } else if (e.target.classList.contains('draft-strategy')) {
       try { const { task_id } = await API.post(`/api/papers/${id}/draft`); followClaude(task_id, `Claude drafts a strategy: ${card.querySelector('h3').textContent}`); }
       catch (err) { toast(err.message, 'bad', 0); }

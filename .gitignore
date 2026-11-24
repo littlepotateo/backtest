@@ -10,3 +10,4 @@ settings.local.json
 research/library/requests/
 data/external/
 strategies/*/*.trials.jsonl
+data/strategy_descriptions.json
