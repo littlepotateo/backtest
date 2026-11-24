@@ -343,6 +343,21 @@ def register(app: FastAPI, ctx) -> None:
         run = lambda log: claude_jobs.analyse_job(ctx.lib_dir, ctx.root, pid, log)
         return {"task_id": tasks.submit(f"Claude analyses: {title[:60]}", run)}
 
+    @app.post("/api/strategies/describe")
+    async def strategy_describe(request: Request):
+        """Claude describes a strategy file (optionally against a paper). The description is saved, not the code."""
+        data = await body(request)
+        rel = str(data.get("path", ""))
+        pid = str(data.get("paper") or "") or None
+        if pid and not PAPER_ID.match(pid):
+            return fail("No such paper.", 404)
+        from backtester.web import strategy_store as store
+        store.strategy_file(ctx.root, rel)                     # refuse anything that is not a strategy file, before Claude is asked
+        if not claude_code.find_claude():
+            raise claude_code.ClaudeError("Claude Code was not found on this computer. " + claude_code.INSTALL_HELP, "BT-CLAUDE-001")
+        run = lambda log: claude_jobs.describe_job(ctx.root, rel, pid, ctx.lib_dir, log)
+        return {"task_id": tasks.submit(f"Claude describes: {rel.rsplit('/', 1)[-1]}", run)}
+
     @app.post("/api/papers/{pid}/draft")
     def paper_draft(pid: str):
         """Claude drafts a strategy from the paper into the review queue (strategies/pending). Nothing runs from it."""

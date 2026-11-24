@@ -88,6 +88,42 @@ def dry_run(path: Path, root: Path, cache_dir: Path) -> dict:
     raise CodedError("The check of this file failed for a reason the program could not classify. The technical log is in the terminal.", "BT-RUN-003")
 
 
+DESCRIPTIONS = "data/strategy_descriptions.json"   # AI descriptions, kept out of the strategy folders (git-ignored)
+MAX_DESCRIBE_BYTES = 60_000
+
+
+def strategy_file(root: Path, rel: str) -> Path:
+    """A runnable strategy file under strategies/ (not removed ones). Anything else is refused."""
+    base = _strategies_dir(root).resolve()
+    p = (root / rel).resolve()
+    if p.suffix != ".py" or base not in p.parents or not p.is_file():
+        raise CodedError("That is not a strategy file in the strategies folder.", "BT-RUN-002")
+    if "removed" in p.relative_to(base).parts or "__pycache__" in p.parts or p.name.startswith("_"):
+        raise CodedError("That strategy is not available to run.", "BT-RUN-002")
+    if p.stat().st_size > MAX_DESCRIBE_BYTES:
+        raise CodedError("The strategy file is too long to describe in one reading.", "BT-RUN-002")
+    return p
+
+
+def load_descriptions(root: Path) -> dict:
+    path = root / DESCRIPTIONS
+    try:
+        data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_description(root: Path, rel: str, entry: dict) -> None:
+    data = load_descriptions(root)
+    data[rel] = entry
+    path = root / DESCRIPTIONS
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def _safe_rel(root: Path, rel: str, folders: tuple[str, ...]) -> Path:
     """A path under strategies/<folder>/ only; anything else is refused."""
     base = _strategies_dir(root).resolve()

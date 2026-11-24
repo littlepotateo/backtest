@@ -135,3 +135,7 @@ legend { color: var(--text-secondary); font-size: .85rem; padding: 0 6px; }
 .verdict-beat, .verdict-profit { border-left-color: var(--accent, #2a78d6); }
 details.technical { margin-top: 24px; }
 details.technical summary { cursor: pointer; color: var(--text-secondary); }
+
+/* Research card: pick a strategy and ask Claude to describe it against the paper */
+.describe-pair { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.ai-description { margin-top: 6px; }

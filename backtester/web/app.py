@@ -192,7 +192,8 @@ def create_app(root: str | Path | None = None) -> FastAPI:
             papers.append({**p, "comparison_html": D.render_markdown(lib.compare(p["id"])),
                            "notes_html": D.render_markdown(notes.read_text(encoding="utf-8")) if notes.exists() else "",
                            "run_ids": [Path(x["run"]).name for x in p["runs"]]})
-        return {"papers": papers, "statuses": STATUSES}
+        return {"papers": papers, "statuses": STATUSES,
+                "strategy_choices": [s for s in S.list_strategies(root) if s["status"] != "removed"]}
 
     def requests_context() -> dict:
         titles = {p["id"]: p["title"] for p in Library(lib_dir).list()}

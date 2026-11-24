@@ -75,6 +75,8 @@ def list_strategies(root: Path) -> list[dict]:
     if not folder.exists():
         return []
     found = []
+    from backtester.web.strategy_store import load_descriptions
+    ai = load_descriptions(root)
     for f in sorted(folder.rglob("*.py")):
         if f.name.startswith("_") or "__pycache__" in f.parts or {"pending", "removed"} & set(f.relative_to(folder).parts):
             continue
@@ -83,6 +85,11 @@ def list_strategies(root: Path) -> list[dict]:
             if meta.get("description"):
                 entry["description"] = meta["description"]
             entry["edge"] = meta.get("edge", "")
+            described = ai.get(entry["path"]) or {}
+            entry["ai_description"] = described.get("description", "")
+            entry["ai_edge"] = described.get("edge", "")
+            entry["ai_risks"] = described.get("risks", [])
+            entry["ai_described"] = described.get("described", "")
             entry["source"] = meta.get("source")
             entry["status"] = meta.get("status", "approved" if "user" in f.relative_to(folder).parts else "shipped")
             found.append(entry)

@@ -46,11 +46,15 @@
   {% for s in strategies %}
   <tr data-path="{{ s.path }}">
     <td><strong>{{ s.name }}</strong><br><span class="legend-note">{{ s.path }}</span></td>
-    <td>{{ s.description or "No description yet." }}{% if s.edge %}<br><span class="legend-note">Edge: {{ s.edge }}</span>{% endif %}</td>
+    <td>{{ s.description or "No description yet." }}{% if s.edge %}<br><span class="legend-note">Edge: {{ s.edge }}</span>{% endif %}
+      {% if s.ai_description %}<div class="ai-description"><span class="chip">AI-written, {{ s.ai_described }}</span> {{ s.ai_description }}
+        {% if s.ai_edge %}<br><span class="legend-note">Edge (AI): {{ s.ai_edge }}</span>{% endif %}
+        {% if s.ai_risks %}<br><span class="legend-note">Risks: {{ s.ai_risks|join('; ') }}</span>{% endif %}</div>{% endif %}</td>
     <td>{{ s.universe|join(', ') }}</td>
     <td>{{ s.status }}</td>
     <td>
       <a class="btn" href="/new?strategy={{ s.path }}">Backtest</a>
+      <button type="button" class="btn" data-action="describe">{{ 'Describe again' if s.ai_described else 'Describe with Claude' }}</button>
       {% if '/user/' in ('/' + s.path) %}<button type="button" class="btn danger" data-action="remove">Remove</button>{% endif %}
     </td>
   </tr>
@@ -58,6 +62,8 @@
   </tbody>
 </table>
 </div>
+
+<div id="describe-activity"></div>
 
 <script>
 async function post(url, payload) {
@@ -82,7 +88,12 @@ document.addEventListener('click', async (ev) => {
   const path = btn.closest('[data-path]').dataset.path;
   const action = btn.dataset.action;
   try {
-    if (action === 'remove') {
+    if (action === 'describe') {
+      const { task_id } = await post('/api/strategies/describe', { path });
+      await followTask(task_id, document.getElementById('describe-activity'), `Claude describes ${path.split('/').pop()}`);
+      location.reload();
+      return;
+    } else if (action === 'remove') {
       if (!confirm('Remove this strategy? It moves to strategies/removed and can be restored by moving it back.')) return;
       await post('/api/strategies/remove', { path, confirm: true });
     } else if (action === 'approve') {
