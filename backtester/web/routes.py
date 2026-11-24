@@ -343,6 +343,20 @@ def register(app: FastAPI, ctx) -> None:
         run = lambda log: claude_jobs.analyse_job(ctx.lib_dir, ctx.root, pid, log)
         return {"task_id": tasks.submit(f"Claude analyses: {title[:60]}", run)}
 
+    @app.post("/api/papers/{pid}/draft")
+    def paper_draft(pid: str):
+        """Claude drafts a strategy from the paper into the review queue (strategies/pending). Nothing runs from it."""
+        if not PAPER_ID.match(pid):
+            return fail("No such paper.", 404)
+        try:
+            title = Library(ctx.lib_dir).get(pid)["title"]
+        except KeyError:
+            return fail("No such paper.", 404)
+        if not claude_code.find_claude():
+            raise claude_code.ClaudeError("Claude Code was not found on this computer. " + claude_code.INSTALL_HELP, "BT-CLAUDE-001")
+        run = lambda log: claude_jobs.draft_job(ctx.lib_dir, ctx.root, ctx.cache_dir, pid, log)
+        return {"task_id": tasks.submit(f"Claude drafts a strategy: {title[:60]}", run)}
+
     @app.post("/api/requests/{rid}/delete")
     def request_delete(rid: str):
         try:
@@ -381,7 +395,7 @@ def register(app: FastAPI, ctx) -> None:
     @app.post("/api/strategies/approve")
     async def strategy_approve(request: Request):
         data = await body(request)
-        return {"path": S_store.approve(ctx.root, str(data.get("path", "")))}
+        return {"path": S_store.approve(ctx.root, str(data.get("path", "")), ctx.cache_dir)}
 
     @app.post("/api/strategies/reject")
     async def strategy_reject(request: Request):

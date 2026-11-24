@@ -16,6 +16,7 @@
   <div class="row">
     <button type="button" class="copy-prompt" data-prompt="Use the backtest skill to replicate the paper &quot;{{ p.title }}&quot;. Its notes are in research/library/{{ p.id }}.md{% if p.text_file %} and the full text is in research/library/{{ p.text_file }}{% endif %}. Record the claimed results as the paper states them, write the strategy, run bt validate, then link the run with bt paper link {{ p.id }} <run folder>.">Copy instructions for Claude</button>
     <button type="button" class="analyse-paper">{{ 'Analyse again with Claude' if p.analysis else 'Analyse with Claude' }}</button>
+    {% if p.analysis %}<button type="button" class="draft-strategy" title="Claude writes a strategy from the paper into the review queue on the Strategies page; nothing runs until you approve it">Draft a strategy for review</button>{% endif %}
     <button type="button" class="danger delete-paper">Delete</button>
   </div>
   {% if p.analysis %}{% set a = p.analysis %}

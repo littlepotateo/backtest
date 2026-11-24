@@ -124,7 +124,7 @@ and `strategies/regime_optimal/`; each has a `spec.md` that lists its assumption
 The **Strategies** page (top menu) lists every strategy you can backtest.
 
 - **Add a strategy:** choose a Python (`.py`) file that defines one class inheriting from `Strategy`, with `universe` and `interval` set. Tick the trust box: the file runs on this computer with your permissions. The file is checked for structure and run once on its own data before it is added (no data is downloaded for you; if the data is missing, the file is still added and the page says it was checked for structure only). Your strategies go into `strategies/user/`.
-- **Drafts:** strategies reconstructed from research papers appear under "Drafts waiting for your review". Nothing in a draft runs until you press **Approve**. **Reject** deletes the draft after you confirm.
+- **Drafts:** on the Research page, an analysed paper has a **Draft a strategy for review** button. Claude writes a strategy from the paper's rules into the drafts queue, with the choices the paper does not settle listed. Drafts also appear under "Drafts waiting for your review" here. The draft is only checked for structure when it is created; **Approve** runs it once on its data and moves it into your strategies, and a draft that fails stays in the queue with the reason. **Reject** deletes the draft after you confirm.
 - **Remove:** moves a strategy you added into `strategies/removed/`. Move the files back by hand to restore it. Shipped examples cannot be removed from the page.
 
 ---
