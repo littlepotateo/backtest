@@ -28,6 +28,12 @@ from backtester.web import strategies as S
 from backtester.web import strategy_store as S_store
 
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _symbols_from(text: str) -> list[str]:
+    """Upper-case tickers from a comma- or space-separated field (at most 10)."""
+    out = [s.strip().upper() for s in re.split(r"[,\s]+", text or "") if s.strip()]
+    return out[:10]
 PAPER_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,120}$")
 
 
@@ -230,13 +236,38 @@ def register(app: FastAPI, ctx) -> None:
         return {"strategies": S.list_strategies(ctx.root)}
 
     @app.get("/api/strategies/needs")
-    def strategy_needs(path: str):
+    def strategy_needs(path: str, symbols: str = ""):
         found = [s for s in S.list_strategies(ctx.root) if s["path"] == path]
         if not found:
             return fail("No such strategy.", 404)
-        needs = S.data_needs(found[0], cache)
-        return {"strategy": found[0], "needs": needs, "suggested_start": S.suggested_start(found[0], needs),
-                "missing": [n for n in needs if not n["cached"]]}
+        strategy = dict(found[0])
+        if symbols and not strategy["options_on"]:
+            strategy["universe"] = _symbols_from(symbols)
+        needs = S.data_needs(strategy, cache)
+        return {"strategy": found[0], "needs": needs, "suggested_start": S.suggested_start(strategy, needs),
+                "missing": [n for n in needs if not n["cached"]], "symbols": strategy["universe"]}
+
+    @app.get("/api/strategies/coverage")
+    def strategy_coverage(path: str, symbols: str = "", start: str = ""):
+        """Whether the cached data supports a run of this strategy on these symbols from this start (see data/coverage.py)."""
+        from backtester.cli import load_strategy_class
+        from backtester.data.coverage import coverage
+        folder = (ctx.root / "strategies").resolve()
+        p = (ctx.root / path).resolve()
+        if p.suffix != ".py" or folder not in p.parents or not p.is_file():
+            return fail("That is not a strategy file in the strategies folder.", 400, "BT-RUN-002")
+        try:
+            cls = load_strategy_class(p)
+        except SystemExit as e:
+            return fail(str(e.code), 400, "BT-RUN-002")
+        syms = _symbols_from(symbols) if symbols else list(cls.universe)
+        if symbols:
+            try:
+                cls = cls.with_universe(syms)
+            except ValueError as e:
+                return fail(str(e), 400, "BT-RUN-002")
+        start = start if DATE.match(start or "") else None
+        return coverage(cls, {}, syms, cls.interval, start, cache, options=bool(cls.options_on))
 
     # --- runs ---------------------------------------------------------------------------------
     @app.post("/api/runs/{run_id}/delete")

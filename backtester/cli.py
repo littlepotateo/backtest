@@ -13,6 +13,7 @@ from pathlib import Path
 import pandas as pd
 
 from backtester import paths
+from backtester.errors import CodedError
 from backtester.analysis.metrics import compute_metrics
 from backtester.data.cache import Cache, from_csv, to_utc
 from backtester.data.ibkr import parse_ibkr_history
@@ -197,17 +198,35 @@ def cmd_import_csv(args):
     print(f"{args.symbol.upper()} {args.interval}: {len(saved)} bars cached")
 
 
+def _symbol_list(values) -> list[str]:
+    """--symbol values, each either one symbol or a comma-separated list, as upper-case tickers."""
+    out = []
+    for v in values or []:
+        out += [s.strip().upper() for s in v.split(",") if s.strip()]
+    return out
+
+
 def _setup(args):
     """Strategy class, parameters, runner (data loaded) and benchmark series from run options."""
+    from backtester.data.coverage import coverage
     cls = load_strategy_class(args.strategy)
     params = _parse_params(args.param)
     cls(**params)                                   # validates parameter names early
+    symbols = _symbol_list(getattr(args, "symbol", None))
+    if symbols:
+        try:
+            cls = cls.with_universe(symbols)
+        except ValueError as e:
+            raise CodedError(str(e), "BT-RUN-002")
+    cache = Cache(args.cache)
+    cov = coverage(cls, params, list(cls.universe), cls.interval, args.start, cache, options=bool(cls.options_on))
+    if not cov["ok"]:
+        raise CodedError(cov["problems"][0], "BT-RUN-002")
     costs = CostModel.from_toml(args.costs).scaled(args.cost_multiplier)
     config = RunConfig(start=args.start, end=args.end, initial_cash=args.cash, costs=costs,
                        fill=args.fill, max_leverage=args.max_leverage,
                        allow_short=not args.no_short, use_adjusted=not args.raw_prices,
                        cash_interest=not args.no_cash_interest)
-    cache = Cache(args.cache)
     runner = Runner(cls, config, cache=cache, backend=args.backend)
     bench_symbol = args.benchmark or cls.universe[0]
     benchmark = None
@@ -230,12 +249,33 @@ def _save_run(args, result, metrics, bench_symbol, benchmark):
     return out
 
 
+def _run_notes(args, cls, result) -> list[str]:
+    """Plain notes about a run that finished but may not mean what it appears to (printed, not errors)."""
+    notes = []
+    fills = result.fills
+    traded = set(fills["symbol"]) if fills is not None and len(fills) and "symbol" in fills else set()
+    idle = [s for s in cls.universe if s not in traded]
+    if idle and len(cls.universe) > 1:
+        notes.append(f"{', '.join(idle)} {'was' if len(idle) == 1 else 'were'} in the universe but the strategy placed no orders in "
+                     f"{'it' if len(idle) == 1 else 'them'}.")
+    if getattr(cls, "returns", "total") == "excess" and getattr(args, "symbol", None):
+        notes.append("This strategy's signal uses excess returns; these prices are total returns, so the numbers are not "
+                     "comparable with the paper.")
+    return notes
+
+
+def _print_notes(notes: list[str]) -> None:
+    for n in notes:
+        print(f"\n  Note: {n}")
+
+
 def cmd_run(args):
     cls, params, runner, benchmark, bench_symbol = _setup(args)
     result = runner.run(params)
     metrics = compute_metrics(result, args.risk_free, _from(benchmark, result.equity.index[0]))
     out = _save_run(args, result, metrics, bench_symbol, benchmark)
     print(format_summary(result.meta, metrics))
+    _print_notes(_run_notes(args, cls, result))
     print(f"\n  Saved to {out}")
 
 
@@ -371,6 +411,7 @@ def cmd_validate(args):
     from backtester.explain import explain
     (out / "explanation.md").write_text(explain(saved, result.meta), encoding="utf-8")
     print(format_summary(result.meta, v["metrics"]))
+    _print_notes(_run_notes(args, cls, result))
     print()
     print(format_validation(v))
     print(f"\n  Saved to {out} (explanation.md written; add narrative.md for a fuller write-up)")
@@ -539,6 +580,8 @@ def main(argv=None):
         s.add_argument("--no-short", action="store_true")
         s.add_argument("--no-cash-interest", action="store_true")
         s.add_argument("--raw-prices", action="store_true", help="ignore dividend adjustment")
+        s.add_argument("--symbol", action="append", metavar="SYMBOL",
+                       help="trade these symbols instead of the strategy's own list (repeat, or comma-separate)")
         s.add_argument("--benchmark", help="symbol for buy-and-hold comparison (default: first in universe)")
         s.add_argument("--risk-free", type=float, default=0.0, help="annual risk-free rate, e.g. 0.04")
         s.add_argument("--backend", default="native")

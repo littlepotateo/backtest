@@ -26,6 +26,22 @@ class Strategy:
     param_grid: dict = {}      # values to try per parameter, e.g. {"fast": [20, 50]}
     warmup_bars: int = 0       # bars of history wanted before the first tradable bar
     options_on: list[str] = []  # underlyings whose options the strategy trades
+    returns: str = "total"      # "total" if the signal uses prices, "excess" if it uses returns above the risk-free rate
+
+    @classmethod
+    def history_needed(cls, params: dict) -> str | None:
+        """The earliest date the strategy needs data from, given its parameters (None: no requirement beyond the run start)."""
+        return None
+
+    @classmethod
+    def with_universe(cls, symbols: list[str]) -> type["Strategy"]:
+        """The same strategy trading `symbols` instead of its own universe (the first symbol is the benchmark by default)."""
+        if not symbols:
+            raise ValueError("give at least one symbol")
+        if cls.options_on:
+            raise ValueError(f"{cls.__name__} trades options on {', '.join(cls.options_on)}, so its symbols cannot be changed here; "
+                             "option pricing needs the volatility of those underlyings.")
+        return type(cls.__name__, (cls,), {"universe": list(symbols), "__module__": cls.__module__})
 
     @classmethod
     def valid_params(cls, params: dict) -> bool:

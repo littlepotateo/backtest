@@ -35,6 +35,11 @@
         <div><label class="f" for="cash">Starting cash ($)</label><input id="cash" name="cash" type="number" value="100000" min="1000"></div>
       </div>
       <p class="small muted" id="start-hint"></p>
+      <div class="row">
+        <div><label class="f" for="symbols">Trade these symbols instead (optional)</label>
+          <input id="symbols" name="symbols" type="text" placeholder="leave empty to use the strategy's own list"></div>
+      </div>
+      <p class="small muted" id="coverage-note" role="status"></p>
       <label class="f" for="params">Strategy settings, one per line (<code>name=value</code>)</label>
       <textarea id="params" name="params"></textarea>
       <p class="small muted">Leave as is to use the defaults shown.</p>
