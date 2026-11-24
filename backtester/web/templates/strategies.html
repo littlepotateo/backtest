@@ -25,7 +25,9 @@
     <p><strong>{{ d.name }}</strong> <span class="chip">draft</span></p>
     {% if d.description %}<p>{{ d.description }}</p>{% endif %}
     {% if d.edge %}<p><strong>Edge:</strong> {{ d.edge }}</p>{% endif %}
-    {% if d.source %}<p class="note">From paper: {{ d.source }}</p>{% endif %}
+    {% if d.source %}<p class="note">From paper: <a href="/research">{{ titles.get(d.source, d.source) }}</a></p>{% endif %}
+    {% if d.assumptions %}<p><strong>Choices the paper does not settle</strong></p>
+      <ul class="small">{% for a in d.assumptions %}<li>{{ a }}</li>{% endfor %}</ul>{% endif %}
     <details><summary>Show the code</summary><pre class="log">{{ d.code }}</pre></details>
     <p class="note">Nothing from a draft runs until you approve it.</p>
     <p><button type="button" class="btn primary" data-action="approve">Approve</button>

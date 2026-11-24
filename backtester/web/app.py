@@ -125,7 +125,11 @@ def create_app(root: str | Path | None = None) -> FastAPI:
 
     @app.get("/strategies", response_class=HTMLResponse)
     def strategies_page(request: Request):
-        return page(request, "strategies.html", strategies=S.list_strategies(root), pending=S.list_pending(root))
+        try:
+            titles = {p["id"]: p["title"] for p in Library(lib_dir).list()}
+        except LibraryError:
+            titles = {}
+        return page(request, "strategies.html", strategies=S.list_strategies(root), pending=S.list_pending(root), titles=titles)
 
     @app.get("/run/{run_id}", response_class=HTMLResponse)
     def run(request: Request, run_id: str):

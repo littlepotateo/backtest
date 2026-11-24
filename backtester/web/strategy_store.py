@@ -100,8 +100,12 @@ def _safe_rel(root: Path, rel: str, folders: tuple[str, ...]) -> Path:
 
 
 def add(root: Path, cache_dir: Path, name: str, source: str, *, status: str, description: str = "", edge: str = "",
-        source_ref: str | None = None, trusted: bool = False) -> dict:
-    """Validate and store a strategy file. status is 'approved' (strategies/user) or 'pending' (strategies/pending)."""
+        source_ref: str | None = None, trusted: bool = False, assumptions: list[str] | None = None,
+        dry_run_now: bool = True) -> dict:
+    """Validate and store a strategy file. status is 'approved' (strategies/user) or 'pending' (strategies/pending).
+
+    dry_run_now=False is used for drafts: they get the static checks now, and the dry run (which executes the code) happens
+    when the user approves them, so nothing runs before a person has read the code."""
     if status not in ("approved", "pending"):
         raise CodedError("Unknown status.", "BT-RUN-002")
     if not trusted:
@@ -117,14 +121,16 @@ def add(root: Path, cache_dir: Path, name: str, source: str, *, status: str, des
     folder.mkdir(parents=True, exist_ok=True)
     target.write_text(source, encoding="utf-8")
     warning = None
-    try:
-        result = dry_run(target, root, cache_dir)
-        warning = result["warning"]
-    except CodedError:
-        target.unlink(missing_ok=True)
-        raise
+    if dry_run_now:
+        try:
+            result = dry_run(target, root, cache_dir)
+            warning = result["warning"]
+        except CodedError:
+            target.unlink(missing_ok=True)
+            raise
     meta = {"class": class_name, "description": description.strip()[:600], "edge": edge.strip()[:600],
-            "source": source_ref, "status": status, "created": dt.date.today().isoformat(), "returns": "total"}
+            "source": source_ref, "status": status, "created": dt.date.today().isoformat(), "returns": "total",
+            "assumptions": [a.strip()[:300] for a in (assumptions or [])][:20]}
     target.with_suffix(".meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     return {"path": target.relative_to(root).as_posix(), "class": class_name, "status": status, "warning": warning}
 
@@ -143,12 +149,14 @@ def remove(root: Path, rel: str) -> str:
     return dest.relative_to(root).as_posix()
 
 
-def approve(root: Path, rel: str) -> str:
-    """Move a pending draft to strategies/user/. Nothing is run."""
+def approve(root: Path, rel: str, cache_dir: Path) -> str:
+    """Approve a pending draft: it is run once on its data (the dry run); if that passes, it moves to strategies/user/.
+    A draft that fails stays in the queue, with the reason."""
     p = _safe_rel(root, rel, ("pending",))
     target = _strategies_dir(root) / "user" / p.name
     if target.exists():
         raise CodedError(f"A strategy called {p.stem} is already in your strategies. Remove it first, or rename this draft.", "BT-RUN-002")
+    dry_run(p, root, cache_dir)                  # the first time this code runs: after the user has approved it
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(p), target)
     side = p.with_suffix(".meta.json")

@@ -103,6 +103,7 @@ def list_pending(root: Path) -> list[dict]:
             code = ""
         out.append({"path": f.relative_to(root).as_posix(), "name": f.stem, "description": meta.get("description", ""),
                     "edge": meta.get("edge", ""), "source": meta.get("source"), "created": meta.get("created", ""),
+                    "assumptions": meta.get("assumptions", []),
                     "code": code, "universe": [s for e in describe_file(f, root) for s in e["universe"]]})
     return out
 

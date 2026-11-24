@@ -89,7 +89,7 @@ def test_drafts_are_listed_for_review_but_never_runnable(root):
 
 def test_approve_moves_the_draft_into_user_and_nothing_else_runs(root):
     out = store.add(root, root / "cache", "from_paper", GOOD, status="pending", trusted=True)
-    new_path = store.approve(root, out["path"])
+    new_path = store.approve(root, out["path"], root / "cache")
     assert new_path.startswith("strategies/user/") and (root / new_path).exists()
     assert not (root / out["path"]).exists()
     assert json.loads((root / new_path).with_suffix(".meta.json").read_text())["status"] == "approved"
@@ -129,3 +129,16 @@ def test_the_strategies_page_shows_a_draft_for_review(root):
     assert r.status_code == 200
     assert "Drafts waiting for your review" in r.text and "Approve" in r.text and "Edge:" in r.text and "Draft trend" in r.text
     assert 'data-action="approve"' in r.text and "paper-x" in r.text
+
+
+def test_a_draft_is_not_run_until_approved_and_a_failing_one_stays_pending(root, monkeypatch):
+    calls = []
+    def boom(path, root, cache):
+        calls.append(path.name)
+        raise CodedError("The strategy raised an error when run: ZeroDivisionError", "BT-RUN-001")
+    out = store.add(root, root / "cache", "from_paper", GOOD, status="pending", trusted=True, dry_run_now=False)
+    assert calls == []                                              # creating a draft runs nothing
+    monkeypatch.setattr(store, "dry_run", boom)
+    with pytest.raises(CodedError, match="ZeroDivisionError"):
+        store.approve(root, out["path"], root / "cache")
+    assert calls == ["from_paper.py"] and (root / out["path"]).exists()   # refused, still in the queue
