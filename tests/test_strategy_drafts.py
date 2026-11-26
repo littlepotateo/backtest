@@ -94,3 +94,20 @@ def test_a_paper_without_an_analysis_is_not_drafted(project, monkeypatch):
     fake_claude(monkeypatch, {"can_draft": True, "code": GOOD_CODE})
     with pytest.raises(ClaudeError, match="Analyse the paper"):
         claude_jobs.draft_job(lib_dir, project, project / "data" / "cache", pid, lambda s: None)
+
+
+def test_code_wrapped_in_a_markdown_fence_is_still_drafted(project, monkeypatch):
+    """Claude often fences code inside the JSON string; the fence is not Python and used to fail the structure check."""
+    lib_dir, pid = paper(project)
+    fake_claude(monkeypatch, {"can_draft": True, "name": "trend_paper", "code": "```python\n" + GOOD_CODE + "```"})
+    out = claude_jobs.draft_job(lib_dir, project, project / "data" / "cache", pid, lambda s: None)
+    assert out["drafted"] is True and (project / "strategies" / "pending" / "trend_paper.py").read_text().startswith("from backtester")
+
+
+def test_fence_with_prose_before_it_is_unwrapped(project, monkeypatch):
+    lib_dir, pid = paper(project)
+    fake_claude(monkeypatch, {"can_draft": True, "name": "trend_paper",
+                              "code": "Here is the strategy:\n```python\n" + GOOD_CODE + "```\nLet me know."})
+    out = claude_jobs.draft_job(lib_dir, project, project / "data" / "cache", pid, lambda s: None)
+    assert out["drafted"] is True
+    assert "Let me know" not in (project / "strategies" / "pending" / "trend_paper.py").read_text()

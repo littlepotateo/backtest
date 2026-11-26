@@ -161,6 +161,13 @@ def _paper_text_rel(lib_dir: Path, root: Path, p: dict) -> str | None:
     return None
 
 
+def _unfence(code: str) -> str:
+    """The Python inside a markdown code fence (```python ... ```), or the text unchanged if it has no fence. Claude often
+    wraps code in a fence even inside a JSON string; the fence is not Python and made the draft fail to parse."""
+    m = re.search(r"```[ \t]*(?:python|py)?[ \t]*\r?\n(.*?)```", code, re.S)
+    return (m.group(1) if m else code).strip("\n") + "\n"
+
+
 def draft_prompt(p: dict, text_path: str | None, analysis: dict) -> str:
     source = (f"The full text of the paper was extracted to the file {text_path}. Read the parts that state the strategy."
               if text_path else "Only the abstract and Claude's earlier analysis are available.")
@@ -182,7 +189,7 @@ Write ONE Python file that defines exactly one class inheriting from `Strategy` 
 and an `on_bar(self, ctx)` method. Use only these calls on ctx: ctx.closes(symbol, n) (numpy array, oldest first, up to the
 current bar), ctx.history(symbol, n), ctx.price(symbol), ctx.position(symbol), ctx.order_target_percent(symbol, pct),
 ctx.equity(), ctx.cash(), ctx.now(). Only look at data up to the current bar. Do not import anything except `backtester` and
-numpy/pandas. Do not read files, call the network or write files.
+numpy/pandas. Do not read files, call the network or write files. Put the plain Python in "code", with no markdown fence.
 
 Rules: take every number from the paper's text; never fill in a value from memory; where the paper does not settle a choice,
 name it in assumptions. If the paper's strategy cannot be written with stocks, ETFs or options on US prices, say so and do not
@@ -225,6 +232,7 @@ def draft_job(lib_dir: Path, root: Path, cache_dir: Path, pid: str, log: Callabl
     code = data.get("code")
     if not isinstance(code, str) or not code.strip():
         raise ClaudeError("Claude's reply had no code, so nothing was saved. Try again.", "BT-CLAUDE-005")
+    code = _unfence(code)
     base = re.sub(r"[^a-z0-9_]", "_", str(data.get("name") or "").strip().lower()).strip("_")
     if not NAME_OK.match(base):
         base = re.sub(r"[^a-z0-9]+", "_", p["title"].lower()).strip("_")[:36].strip("_")
